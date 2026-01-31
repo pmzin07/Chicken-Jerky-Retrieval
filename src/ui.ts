@@ -1,7 +1,7 @@
 // Game UI System - Fixed UI with objective pointer and ability cooldown
 import { KaboomCtx, GameObj, Vec2 } from "kaboom";
 import { gameState } from "./state";
-import { MaskManager } from "./mechanics/MaskManager";
+import { MaskManager, UI_ICON_SIZE, MASK_SCALE_UI } from "./mechanics/MaskManager";
 import { CameraController } from "./camera";
 
 export interface GameUI {
@@ -45,18 +45,33 @@ export function createGameUI(k: KaboomCtx): GameUI {
   //                          [ BAR  ]
   const ICON_X = 20;
   const ICON_Y = 85;
-  const ICON_WIDTH = 80; // Fixed icon box width (larger than sprite to ensure clearance)
+  const ICON_WIDTH = UI_ICON_SIZE; // Icon box width matches target size
   const GAP = 25; // Hard gap between icon and info
   const INFO_X = ICON_X + ICON_WIDTH + GAP; // Start X for text and bar = 125
   const BAR_WIDTH = 160;
   const BAR_HEIGHT = 22;
   const BAR_Y = ICON_Y + 40; // Bar positioned near bottom of icon area
   const TEXT_Y = BAR_Y - 28; // Text positioned above bar
+  const ICON_CENTER_X = ICON_X + UI_ICON_SIZE / 2;
+  const ICON_CENTER_Y = ICON_Y + UI_ICON_SIZE / 2;
+  
+  // Empty slot placeholder (grey outline box behind mask icon)
+  container.add([
+    k.rect(UI_ICON_SIZE + 8, UI_ICON_SIZE + 8),
+    k.pos(ICON_CENTER_X, ICON_CENTER_Y),
+    k.anchor("center"),
+    k.color(40, 40, 50),
+    k.opacity(0.6),
+    k.outline(3, k.rgb(80, 80, 100)),
+    k.z(1000) // Behind the mask icon
+  ]);
   
   const maskIcon = container.add([
     k.sprite("mask-silence"),
-    k.pos(ICON_X, ICON_Y),
-    k.scale(5),
+    k.pos(ICON_CENTER_X, ICON_CENTER_Y),
+    k.anchor("center"),
+    k.scale(MASK_SCALE_UI),
+    k.opacity(0), // Hidden until mask equipped
     k.z(1001)
   ]);
 
@@ -185,6 +200,9 @@ export function updateGameUI(
       shield: "mask-shield"
     };
     ui.maskIcon.use(k.sprite(maskSprites[currentMask.id] || "mask-silence"));
+    // Re-apply scale after sprite change (SVG sprites can reset scale)
+    ui.maskIcon.scale = k.vec2(MASK_SCALE_UI);
+    ui.maskIcon.opacity = 1; // Show mask icon when equipped
     ui.maskNameText.text = currentMask.nameVi;
 
     // Update cooldown bar with enhanced visuals (width: 156 max = BAR_WIDTH - 4)
@@ -207,6 +225,7 @@ export function updateGameUI(
       ui.cooldownGlow.opacity = 0;
     }
   } else {
+    ui.maskIcon.opacity = 0; // Hide mask icon when no mask equipped
     ui.maskNameText.text = "No Mask";
     ui.cooldownBar.width = 0;
     ui.cooldownText.text = "---";

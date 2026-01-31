@@ -68,7 +68,7 @@ export function level5Scene(k: KaboomCtx): void {
   let currentTextIndex = 0;
   
   const TEXT_FIRE_RATE = 1.8;
-  const JERKY_SPAWN_RATE = 0.15; // Very fast for bullet hell
+  const JERKY_SPAWN_RATE = 0.1; // 10 jerky bags per second - heavy storm
 
   // Create Boss
   const boss = k.add([
@@ -176,22 +176,21 @@ export function level5Scene(k: KaboomCtx): void {
     k.fixed()
   ]);
 
-  // ============= FOG LAYER (Phase 3) =============
+  // ============= FOG LAYER (Phase 3) - Full Screen Pulsing Overlay =============
   let fogLayer: GameObj<any> | null = null;
-  let fogMoveTimer = 0;
-  let fogTargetX = k.width() / 2;
-  let fogTargetY = k.height() / 2;
+  let fogPulseTime = 0;
+  const FOG_PULSE_SPEED = 1.5; // Speed of opacity pulse
 
   function createFog(): void {
     if (fogLayer) return;
     
+    // Full-screen fog overlay
     fogLayer = k.add([
-      k.circle(300), // Large cloud covering view
-      k.pos(k.width() / 2, k.height() / 2),
-      k.anchor("center"),
-      k.color(50, 50, 80),
-      k.opacity(0.75),
-      k.z(99), // Just below UI
+      k.rect(k.width(), k.height()),
+      k.pos(0, 0),
+      k.color(220, 220, 230), // White/grey fog
+      k.opacity(0.85), // Very thick
+      k.z(100), // Just below UI
       k.fixed(),
       "fog"
     ]);
@@ -200,19 +199,12 @@ export function level5Scene(k: KaboomCtx): void {
   function updateFog(): void {
     if (!fogLayer || !fogLayer.exists()) return;
     
-    fogMoveTimer += k.dt();
-    if (fogMoveTimer >= 1.5) {
-      fogMoveTimer = 0;
-      fogTargetX = k.rand(100, k.width() - 100);
-      fogTargetY = k.rand(100, k.height() - 100);
-    }
+    fogPulseTime += k.dt();
     
-    // Smooth movement
-    fogLayer.pos.x = k.lerp(fogLayer.pos.x, fogTargetX, k.dt() * 2);
-    fogLayer.pos.y = k.lerp(fogLayer.pos.y, fogTargetY, k.dt() * 2);
-    
-    // Pulsing opacity
-    fogLayer.opacity = 0.6 + Math.sin(k.time() * 2) * 0.15;
+    // Pulsing opacity: 0.8 -> 0.4 -> 0.8 (gives player brief glimpses)
+    // Using sine wave that goes 0.4 to 0.85
+    const pulseValue = Math.sin(fogPulseTime * FOG_PULSE_SPEED);
+    fogLayer.opacity = 0.625 + pulseValue * 0.225; // Range: 0.4 to 0.85
   }
 
   // ============= BOSS MOVEMENT =============

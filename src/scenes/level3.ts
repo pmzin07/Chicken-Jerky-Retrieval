@@ -66,28 +66,24 @@ export function level3Scene(k: KaboomCtx): void {
   // Create Zed Shadows from map (enemies)
   const enemies = createZedShadowsFromMap(k, map);
 
-  // ============= STARFALL MECHANIC (REWORKED) =============
-  // Two types: Random falling stars + Homing red stars
+  // ============= STARFALL MECHANIC (SCREEN-RELATIVE) =============
+  // Stars spawn relative to camera view, not map position
+  // Includes warning indicators before stars fall
   
   interface StarWarning {
-    shadow: GameObj<any>;
+    indicator: GameObj<any>;
     timer: number;
-    targetX: number;  // Player X at spawn time (for homing)
-    targetY: number;  // Player Y at spawn time (for homing)
-    spawnX: number;   // Where star spawns (top of map)
-    spawnY: number;
+    screenX: number;   // X position on screen (0 to width)
     fallen: boolean;
-    isHoming: boolean; // Red homing star vs yellow falling star
+    isHoming: boolean;
   }
   const starWarnings: StarWarning[] = [];
   
   // Spawn timers
-  let randomStarTimer = 0;
-  let homingStarTimer = 0;
-  const RANDOM_STAR_INTERVAL = 0.5;  // Every 0.5s - rapid random stars
-  const HOMING_STAR_INTERVAL = 1.5;  // Every 1.5s - red homing stars
-  const STAR_FALL_DELAY = 0.3;       // Very short warning
-  const MAX_STARS = 20;              // High density
+  let starTimer = 0;
+  const STAR_SPAWN_INTERVAL = 0.4;  // Spawn rate
+  const WARNING_DURATION = 0.5;      // 0.5s warning before star falls
+  const MAX_WARNINGS = 12;           // Max concurrent warnings
   
   let playerStunned = false;
   let stunTimer = 0;
@@ -102,14 +98,62 @@ export function level3Scene(k: KaboomCtx): void {
     k.z(100)
   ]);
 
-  // ============= SPAWN RANDOM FALLING STAR (Yellow - Falls straight down) =============
-  function spawnRandomStar(): void {
-    if (starWarnings.filter(w => !w.fallen).length >= MAX_STARS) return;
+  // ============= SPAWN STAR WARNING (Screen-Relative) =============
+  function spawnStarWarning(): void {
+    if (starWarnings.filter(w => !w.fallen).length >= MAX_WARNINGS) return;
 
-    const spawnX = k.rand(TILE_SIZE * 2, map.width - TILE_SIZE * 2);
-    const spawnY = -10; // Above screen
+    // Get camera position for screen-relative spawning
+    const camPos = k.camPos();
+    const screenHalfW = k.width() / 2 / camera.getZoom();
+    const screenHalfH = k.height() / 2 / camera.getZoom();
+    
+    // Aim towards player's current X position with some randomness
+    const playerScreenX = player.pos.x;
+    const targetX = playerScreenX + k.rand(-40, 40);
+    
+    // Clamp to visible screen area
+    const worldX = k.clamp(targetX, camPos.x - screenHalfW + 20, camPos.x + screenHalfW - 20);
+    const worldY = camPos.y - screenHalfH + 10; // Top of visible screen
+    
+    const isHoming = k.rand() < 0.3; // 30% chance for red homing star
+    
+    // Create warning indicator (Red "!" or shadow)
+    const indicator = k.add([
+      k.text("!", { size: 16 }),
+      k.pos(worldX, worldY + 20),
+      k.anchor("center"),
+      k.color(isHoming ? 255 : 255, isHoming ? 50 : 200, isHoming ? 50 : 0),
+      k.opacity(0.8),
+      k.z(51),
+      "star-warning"
+    ]);
 
-    // No warning shadow for random stars - they just fall!
+    starWarnings.push({
+      indicator,
+      timer: 0,
+      screenX: worldX,
+      fallen: false,
+      isHoming
+    });
+  }
+
+  // ============= DROP STAR AFTER WARNING =============
+  function dropStar(warning: StarWarning): void {
+    warning.fallen = true;
+    if (warning.indicator.exists()) warning.indicator.destroy();
+
+    // Get current camera position for spawn
+    const camPos = k.camPos();
+    const screenHalfH = k.height() / 2 / camera.getZoom();
+    
+    const spawnX = warning.screenX;
+    const spawnY = camPos.y - screenHalfH - 10; // Just above visible screen
+    const killY = camPos.y + screenHalfH + 20; // Just below visible screen
+    
+    const starColor = warning.isHoming ? k.rgb(255, 50, 50) : k.rgb(255, 215, 0);
+    const outlineColor = warning.isHoming ? k.rgb(200, 0, 0) : k.rgb(255, 180, 0);
+    
+    // Create star
     const star = k.add([
       k.polygon([
         k.vec2(0, -8),
@@ -125,160 +169,38 @@ export function level3Scene(k: KaboomCtx): void {
       ]),
       k.pos(spawnX, spawnY),
       k.anchor("center"),
-      k.color(255, 215, 0), // Yellow
-      k.outline(1, k.rgb(255, 180, 0)),
+      k.color(starColor),
+      k.outline(1, outlineColor),
       k.area({ shape: new k.Rect(k.vec2(0), 14, 14), scale: k.vec2(0.5, 0.5) }),
       k.z(50),
       "falling-star",
       {
-        isHoming: false,
-        speed: 200, // Fall speed (gravity-like)
-        lifetime: 5
+        isHoming: warning.isHoming,
+        speed: warning.isHoming ? 250 : 200,
+        killY: killY
       }
     ]);
 
-    // Straight down movement
+    // Star movement
     star.onUpdate(() => {
       star.pos.y += star.speed * k.dt();
-      star.lifetime -= k.dt();
       
-      // Create impact particles when hitting ground
-      if (star.pos.y >= map.height - TILE_SIZE) {
+      // Destroy when past bottom of screen
+      if (star.pos.y >= star.killY) {
         // Impact particles
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 4; i++) {
           const particle = k.add([
             k.circle(3),
-            k.pos(star.pos.x, map.height - TILE_SIZE),
+            k.pos(star.pos.x, star.pos.y),
             k.anchor("center"),
-            k.color(255, 215, 0),
+            k.color(star.isHoming ? 255 : 255, star.isHoming ? 50 : 215, star.isHoming ? 50 : 0),
             k.opacity(1),
             k.z(49),
-            { vel: k.vec2(k.rand(-80, 80), k.rand(-100, -40)), life: 0.5 }
+            { vel: k.vec2(k.rand(-60, 60), k.rand(-80, -30)), life: 0.4 }
           ]);
           particle.onUpdate(() => {
             particle.pos = particle.pos.add(particle.vel.scale(k.dt()));
-            particle.vel.y += 300 * k.dt();
-            particle.opacity -= k.dt() * 2;
-            particle.life -= k.dt();
-            if (particle.life <= 0) particle.destroy();
-          });
-        }
-        star.destroy();
-        return;
-      }
-      
-      if (star.lifetime <= 0) {
-        star.destroy();
-        return;
-      }
-      
-      // Check collision with player
-      const dist = player.pos.dist(star.pos);
-      if (dist < 14 && !gameState.isPlayerEthereal() && !gameState.isInvincible()) {
-        playerStunned = true;
-        stunTimer = 0;
-        player.color = k.rgb(255, 215, 0);
-        camera.shake(8, 0.2);
-        star.destroy();
-      }
-    });
-  }
-
-  // ============= SPAWN HOMING RED STAR (Targets player position at spawn) =============
-  function spawnHomingStar(): void {
-    if (starWarnings.filter(w => !w.fallen).length >= MAX_STARS) return;
-
-    const spawnX = k.rand(TILE_SIZE * 2, map.width - TILE_SIZE * 2);
-    const spawnY = TILE_SIZE;
-    
-    // Capture player position at spawn time
-    const playerTargetX = player.pos.x;
-    const playerTargetY = player.pos.y;
-
-    // Brief warning indicator
-    const shadow = k.add([
-      k.circle(10),
-      k.pos(spawnX, spawnY),
-      k.anchor("center"),
-      k.color(255, 50, 50), // Red warning
-      k.opacity(0.6),
-      k.z(50),
-      "star-shadow"
-    ]);
-
-    starWarnings.push({
-      shadow,
-      timer: 0,
-      targetX: playerTargetX,
-      targetY: playerTargetY,
-      spawnX: spawnX,
-      spawnY: spawnY,
-      fallen: false,
-      isHoming: true
-    });
-  }
-
-  // Function to drop homing star
-  function dropHomingStar(warning: StarWarning): void {
-    warning.fallen = true;
-    warning.shadow.destroy();
-
-    // Calculate direction from spawn towards player position
-    const dir = k.vec2(warning.targetX - warning.spawnX, warning.targetY - warning.spawnY).unit();
-    const angle = Math.atan2(dir.y, dir.x) * (180 / Math.PI) + 90;
-
-    // Create RED homing star
-    const star = k.add([
-      k.polygon([
-        k.vec2(0, -12),
-        k.vec2(3, -4),
-        k.vec2(12, -4),
-        k.vec2(5, 2),
-        k.vec2(7, 12),
-        k.vec2(0, 6),
-        k.vec2(-7, 12),
-        k.vec2(-5, 2),
-        k.vec2(-12, -4),
-        k.vec2(-3, -4)
-      ]),
-      k.pos(warning.spawnX, warning.spawnY),
-      k.anchor("center"),
-      k.rotate(angle),
-      k.color(255, 50, 50), // RED
-      k.outline(2, k.rgb(200, 0, 0)),
-      k.area({ shape: new k.Rect(k.vec2(0), 20, 20), scale: k.vec2(0.5, 0.5) }),
-      k.z(50),
-      "falling-star",
-      "red-star",
-      {
-        dir: dir,
-        speed: 220, // Fast homing
-        lifetime: 4
-      }
-    ]);
-
-    // Linear movement towards captured target
-    star.onUpdate(() => {
-      star.pos = star.pos.add(star.dir.scale(star.speed * k.dt()));
-      star.lifetime -= k.dt();
-      
-      // Impact particles when off-screen or expired
-      if (star.pos.x < -TILE_SIZE || star.pos.x > map.width + TILE_SIZE ||
-          star.pos.y < -TILE_SIZE || star.pos.y > map.height + TILE_SIZE ||
-          star.lifetime <= 0) {
-        // Impact particles
-        for (let i = 0; i < 6; i++) {
-          const particle = k.add([
-            k.circle(4),
-            k.pos(star.pos),
-            k.anchor("center"),
-            k.color(255, 100, 100),
-            k.opacity(1),
-            k.z(49),
-            { vel: k.vec2(k.rand(-100, 100), k.rand(-100, 100)), life: 0.4 }
-          ]);
-          particle.onUpdate(() => {
-            particle.pos = particle.pos.add(particle.vel.scale(k.dt()));
+            particle.vel.y += 200 * k.dt();
             particle.opacity -= k.dt() * 2.5;
             particle.life -= k.dt();
             if (particle.life <= 0) particle.destroy();
@@ -290,23 +212,11 @@ export function level3Scene(k: KaboomCtx): void {
       
       // Check collision with player
       const dist = player.pos.dist(star.pos);
-      if (dist < 18 && !gameState.isPlayerEthereal() && !gameState.isInvincible()) {
+      if (dist < 14 && !gameState.isPlayerEthereal() && !gameState.isInvincible()) {
         playerStunned = true;
         stunTimer = 0;
-        player.color = k.rgb(255, 50, 50);
-        camera.shake(12, 0.3);
-        
-        const stunIndicator = k.add([
-          k.text("1 HIT!", { size: 10 }),
-          k.pos(player.pos.x, player.pos.y - 20),
-          k.anchor("center"),
-          k.color(255, 50, 50),
-          k.z(100)
-        ]);
-        k.wait(STUN_DURATION, () => {
-          if (stunIndicator.exists()) stunIndicator.destroy();
-        });
-        
+        player.color = k.rgb(255, 215, 0);
+        camera.shake(8, 0.2);
         star.destroy();
       }
     });
@@ -370,45 +280,30 @@ export function level3Scene(k: KaboomCtx): void {
       }
     }
 
-    // ===== DUAL STAR SPAWNING SYSTEM =====
-    // Random falling stars (yellow) - every 0.5s
-    randomStarTimer += dt;
-    if (randomStarTimer >= RANDOM_STAR_INTERVAL) {
-      randomStarTimer = 0;
-      spawnRandomStar();
-    }
-    
-    // Homing red stars - every 1.5s
-    homingStarTimer += dt;
-    if (homingStarTimer >= HOMING_STAR_INTERVAL) {
-      homingStarTimer = 0;
-      spawnHomingStar();
+    // ===== SCREEN-RELATIVE STARFALL SYSTEM =====
+    starTimer += dt;
+    if (starTimer >= STAR_SPAWN_INTERVAL) {
+      starTimer = 0;
+      spawnStarWarning();
     }
 
-    // Update homing star warnings (red stars only)
+    // Update star warnings (flash before dropping)
     starWarnings.forEach(warning => {
       if (warning.fallen) return;
       
       warning.timer += dt;
       
-      // Grow shadow as time approaches
-      const progress = warning.timer / STAR_FALL_DELAY;
-      const radius = 10 + progress * 12;
-      warning.shadow.radius = radius;
-      warning.shadow.opacity = 0.4 + progress * 0.4;
+      // Flash warning indicator
+      const progress = warning.timer / WARNING_DURATION;
+      warning.indicator.opacity = 0.5 + Math.sin(k.time() * 20) * 0.3;
       
-      // Flash red when about to fire
-      if (progress > 0.5) {
-        warning.shadow.color = k.rgb(
-          255,
-          50 + Math.sin(k.time() * 30) * 50,
-          50
-        );
-      }
-
-      // Fire homing star
-      if (warning.timer >= STAR_FALL_DELAY) {
-        dropHomingStar(warning);
+      // Scale up as approaching drop
+      const scale = 1 + progress * 0.5;
+      warning.indicator.scale = k.vec2(scale);
+      
+      // Drop star when warning timer expires
+      if (warning.timer >= WARNING_DURATION) {
+        dropStar(warning);
       }
     });
 
