@@ -132,7 +132,7 @@ export function level2Scene(k: KaboomCtx): void {
   const projectiles: GameObj<any>[] = [];
   const slipperyZones: GameObj<any>[] = [];
   let projectileSpawnTimer = 0;
-  const PROJECTILE_SPAWN_INTERVAL = 2.5; // Slower projectile spawns
+  const PROJECTILE_SPAWN_INTERVAL = 3.0; // Much slower projectile spawns (was 2.5)
   const PROJECTILE_TYPES = ["rocket", "diamond", "egg"] as const;
   type ProjectileType = typeof PROJECTILE_TYPES[number];
 
@@ -141,29 +141,30 @@ export function level2Scene(k: KaboomCtx): void {
     const toPlayer = player.pos.sub(tuSePos);
     const dir = toPlayer.unit();
     
-    // ============= WARNING INDICATOR (0.5s before firing) =============
+    // ============= WARNING INDICATOR (1.0s before firing) =============
+    // Phase 1: Draw a THIN, semi-transparent RED LINE where attack will go
     const warningAngle = Math.atan2(dir.y, dir.x) * (180 / Math.PI);
-    const warningLength = toPlayer.len();
+    const warningLength = Math.max(map.width, map.height) * 1.5; // Extend across entire screen
     
     const warningLine = k.add([
-      k.rect(warningLength, 2),
+      k.rect(warningLength, 3), // Thin line
       k.pos(tuSePos.x, tuSePos.y + 30),
       k.anchor("left"),
       k.rotate(warningAngle),
       k.color(255, 50, 50),
-      k.opacity(0.6),
+      k.opacity(0.3), // Semi-transparent
       k.z(7),
-      "hazardous",
+      "warning_line",
       "temporary_junk" // Tag for cleanup on win
     ]);
     
-    // Flash the warning line
+    // Phase 2: Flash the warning line slowly (player can see and react)
     warningLine.onUpdate(() => {
-      warningLine.opacity = 0.3 + Math.sin(k.time() * 20) * 0.3;
+      warningLine.opacity = 0.2 + Math.sin(k.time() * 8) * 0.15; // Slower, subtler pulse
     });
     
-    // Spawn actual projectile after delay
-    k.wait(0.5, () => {
+    // Phase 3: After 1.0s, fire actual projectile
+    k.wait(1.0, () => {
       if (warningLine.exists()) warningLine.destroy();
       actuallySpawnProjectile(type, dir, tuSePos);
     });
@@ -188,7 +189,7 @@ export function level2Scene(k: KaboomCtx): void {
         {
           projType: "rocket",
           dir: dir,
-          speed: 160 // Slower speed
+          speed: 120 // Nerfed speed for dodgeability
         }
       ]);
     } else if (type === "diamond") {
@@ -206,7 +207,7 @@ export function level2Scene(k: KaboomCtx): void {
         {
           projType: "diamond",
           dir: k.vec2(k.rand(-1, 1), k.rand(0.3, 1)).unit(),
-          speed: 100, // Slower speed
+          speed: 70, // Nerfed speed
           bounces: 0,
           maxBounces: 3 // Fewer bounces
         }
@@ -428,6 +429,7 @@ export function level2Scene(k: KaboomCtx): void {
       k.pos(map.width / 2, 25),
       k.anchor("center"),
       k.color(100, 255, 100),
+      k.opacity(1),
       k.z(100)
     ]);
     
