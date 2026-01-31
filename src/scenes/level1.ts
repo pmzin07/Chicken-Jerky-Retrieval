@@ -275,10 +275,8 @@ function buildLevel(k: KaboomCtx, map: typeof LEVEL_1_MAP): void {
 
 // Create player entity
 function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManager): GameObj<any> {
-  // Player state machine
+  // Player state
   let currentState: "idle" | "run" = "idle";
-  let currentDirection: "down" | "up" | "right" | "left" = "down";
-  let lastDirection: "down" | "up" | "right" | "left" = "down";
 
   const player = k.add([
     k.sprite("vu-idle"),
@@ -295,10 +293,10 @@ function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManag
     }
   ]);
 
-  // Try to play initial animation
-  try { player.play("idle-down"); } catch {}
+  // Play initial animation
+  try { player.play("idle"); } catch {}
 
-  // Mask overlay (Paper Doll system - Face-Only Attachment)
+  // Mask overlay (Paper Doll system)
   const maskOverlay = k.add([
     k.sprite("mask-shield"),
     k.pos(x, y - 5),
@@ -308,16 +306,6 @@ function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManag
     k.z(11),
     "mask-overlay"
   ]);
-
-  // Get direction from input
-  function getDirection(dir: { x: number; y: number }): "down" | "up" | "right" | "left" {
-    if (Math.abs(dir.x) > Math.abs(dir.y)) {
-      return dir.x > 0 ? "right" : "left";
-    } else if (dir.y !== 0) {
-      return dir.y > 0 ? "down" : "up";
-    }
-    return lastDirection;
-  }
 
   // Movement controls
   player.onUpdate(() => {
@@ -333,24 +321,20 @@ function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManag
     const newState = isMoving ? "run" : "idle";
 
     if (isMoving) {
-      currentDirection = getDirection(dir);
-      lastDirection = currentDirection;
       player.dir = dir.unit();
       player.move(player.dir.scale(player.speed));
     }
 
-    // State transition - update animation
-    if (newState !== currentState || currentDirection !== lastDirection) {
+    // State transition - switch sprite and animation
+    if (newState !== currentState) {
       currentState = newState;
-      const spriteName = newState === "run" ? "vu-run" : "vu-idle";
-      const animName = `${newState === "run" ? "run" : "idle"}-${currentDirection}`;
       try {
-        player.use(k.sprite(spriteName));
-        player.play(animName);
+        player.use(k.sprite(newState === "run" ? "vu-run" : "vu-idle"));
+        player.play(newState);
       } catch {}
     }
 
-    // Update mask overlay (follows player head position)
+    // Update mask overlay
     maskOverlay.pos.x = player.pos.x;
     maskOverlay.pos.y = player.pos.y - 5 + (currentState === "run" ? Math.sin(k.time() * 15) * 0.5 : 0);
     const currentMask = gameState.getPlayerState().currentMask;

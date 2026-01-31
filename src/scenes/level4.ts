@@ -649,10 +649,8 @@ function buildLevel(k: KaboomCtx, map: typeof LEVEL_4_MAP): void {
 
 // ============= CREATE PLAYER =============
 function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManager, map: typeof LEVEL_4_MAP): GameObj<any> {
-  // Player state machine
+  // Player state
   let currentState: "idle" | "run" = "idle";
-  let currentDirection: "down" | "up" | "right" | "left" = "down";
-  let lastDirection: "down" | "up" | "right" | "left" = "down";
 
   const player = k.add([
     k.sprite("vu-idle"),
@@ -670,9 +668,9 @@ function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManag
     }
   ]);
 
-  try { player.play("idle-down"); } catch {}
+  try { player.play("idle"); } catch {}
 
-  // Mask overlay (Paper Doll system - Face-Only Attachment)
+  // Mask overlay
   const maskOverlay = k.add([
     k.sprite("mask-frozen"),
     k.pos(x, y - 5),
@@ -682,12 +680,6 @@ function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManag
     k.z(11),
     "mask-overlay"
   ]);
-
-  function getDirection(dir: { x: number; y: number }): "down" | "up" | "right" | "left" {
-    if (Math.abs(dir.x) > Math.abs(dir.y)) return dir.x > 0 ? "right" : "left";
-    else if (dir.y !== 0) return dir.y > 0 ? "down" : "up";
-    return lastDirection;
-  }
 
   player.onUpdate(() => {
     if (gameState.isPaused() || gameState.isDialogueActive()) return;
@@ -712,20 +704,19 @@ function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManag
     const newState = isMoving ? "run" : "idle";
 
     if (isMoving) {
-      currentDirection = getDirection(dir);
-      lastDirection = currentDirection;
       player.dir = dir.unit();
       player.move(player.dir.scale(player.speed));
     }
 
     if (newState !== currentState) {
       currentState = newState;
-      const spriteName = newState === "run" ? "vu-run" : "vu-idle";
-      const animName = `${newState === "run" ? "run" : "idle"}-${currentDirection}`;
-      try { player.use(k.sprite(spriteName)); player.play(animName); } catch {}
+      try {
+        player.use(k.sprite(newState === "run" ? "vu-run" : "vu-idle"));
+        player.play(newState);
+      } catch {}
     }
 
-    // Mask overlay update (follows player head position)
+    // Mask overlay update
     maskOverlay.pos.x = player.pos.x;
     maskOverlay.pos.y = player.pos.y - 5 + (currentState === "run" ? Math.sin(k.time() * 15) * 0.5 : 0);
     const currentMask = gameState.getPlayerState().currentMask;
@@ -745,7 +736,6 @@ function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManag
     player.pos.x = k.clamp(player.pos.x, minX, maxX);
     player.pos.y = k.clamp(player.pos.y, minY, maxY);
 
-    // Shield visual (golden tint when shielding)
     if (gameState.isPlayerShielding()) {
       player.opacity = 1;
     }

@@ -11,7 +11,6 @@ import maskShieldImg from './assets/ui/masks/mask_shield.svg';
 // Import Vu character sprites
 import vuIdleAnim from './assets/sprites/characters/vu/Vu_idle_anim_16x16.png';
 import vuRun from './assets/sprites/characters/vu/Vu_run_16x16.png';
-import vuIdle from './assets/sprites/characters/vu/Vu_idle_16x16.png';
 
 // Tile size for all entities
 export const TILE_SIZE = 16;
@@ -76,34 +75,23 @@ export function loadAssets(k: KaboomCtx): void {
   k.loadSprite("intro_corp", createIntroSlide(640, 360, "#0f0f23", "#1a1a40", "BAGASSE CORP"));
 
   // ============= PLAYER - Vu Character Sprites =============
-  // Idle animation (standing still) - 4 directional rows
-  // Direction mapping: Row 0=Left, Row 1=Up(Back), Row 2=Right, Row 3=Down(Front)
+  // Idle animation - simple looping sprite
   k.loadSprite("vu-idle", vuIdleAnim, {
-    sliceX: 4,  // 4 frames horizontal
-    sliceY: 4,  // 4 directions
+    sliceX: 4,
+    sliceY: 1,
     anims: {
-      "idle-left":  { from: 0, to: 3, loop: true, speed: 5 },   // Row 0 - Side_Left
-      "idle-up":    { from: 4, to: 7, loop: true, speed: 5 },   // Row 1 - Back
-      "idle-right": { from: 8, to: 11, loop: true, speed: 5 },  // Row 2 - Side_Right
-      "idle-down":  { from: 12, to: 15, loop: true, speed: 5 }  // Row 3 - Front
+      "idle": { from: 0, to: 3, loop: true, speed: 6 }
     }
   });
   
-  // Run animation (moving) - Horizontal strip with 24 frames total
-  // 6 frames per direction: Right(0-5), Up(6-11), Left(12-17), Down(18-23)
+  // Run animation - simple looping sprite
   k.loadSprite("vu-run", vuRun, {
-    sliceX: 24,  // 24 frames horizontal (columns)
-    sliceY: 1,   // Single row - horizontal strip
+    sliceX: 4,
+    sliceY: 1,
     anims: {
-      "run-right": { from: 0, to: 5, loop: true, speed: 12 },   // Frames 0-5
-      "run-up":    { from: 6, to: 11, loop: true, speed: 12 },  // Frames 6-11
-      "run-left":  { from: 12, to: 17, loop: true, speed: 12 }, // Frames 12-17
-      "run-down":  { from: 18, to: 23, loop: true, speed: 12 }  // Frames 18-23
+      "run": { from: 0, to: 3, loop: true, speed: 10 }
     }
   });
-  
-  // Static idle for fallback
-  k.loadSprite("vu-static", vuIdle);
   
   // Legacy player placeholder (keep for compatibility)
   k.loadSprite("player", createPlaceholderSprite(16, 16, "#4FC3F7", "#29B6F6"));
