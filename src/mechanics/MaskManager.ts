@@ -78,11 +78,19 @@ export class MaskManager {
       this.k.sprite("mask-silence"), // Default, will be hidden
       this.k.anchor("center"),
       this.k.pos(0, -2), // Slightly above center (face position)
-      this.k.scale(MASK_SCALE_PLAYER),
+      this.k.scale(MASK_SCALE_PLAYER, MASK_SCALE_PLAYER),
       this.k.opacity(0), // Hidden until mask equipped
       this.k.z(11), // Above player sprite (player is z(10))
       "player-mask"
     ]);
+    
+    // Force scale on every frame (SVG sprites can reset scale)
+    this.playerMaskSprite.onUpdate(() => {
+      if (this.playerMaskSprite) {
+        this.playerMaskSprite.scale.x = MASK_SCALE_PLAYER;
+        this.playerMaskSprite.scale.y = MASK_SCALE_PLAYER;
+      }
+    });
   }
   
   // Update the visible mask on player
@@ -103,8 +111,9 @@ export class MaskManager {
       const spriteName = MASK_SPRITES[mask.id];
       if (spriteName) {
         this.playerMaskSprite.use(this.k.sprite(spriteName));
-        // Re-apply scale after sprite change (use() resets it)
-        this.playerMaskSprite.scale = this.k.vec2(MASK_SCALE_PLAYER);
+        // Force scale immediately
+        this.playerMaskSprite.scale.x = MASK_SCALE_PLAYER;
+        this.playerMaskSprite.scale.y = MASK_SCALE_PLAYER;
         this.playerMaskSprite.opacity = 0.9;
         this.currentMaskId = mask.id;
       }
