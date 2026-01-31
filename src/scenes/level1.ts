@@ -6,7 +6,7 @@ import { gameState } from "../state.ts";
 import { LEVEL_DIALOGUES, MASKS } from "../constants.ts";
 import { showDialogue } from "./dialogue.ts";
 import { CameraController } from "../camera.ts";
-import { createGameUI, updateGameUI } from "../ui.ts";
+import { createGameUI, updateGameUI, showMaskDescription } from "../ui.ts";
 import { LEVEL_1_MAP, findInMap, getPlayerSpawn, getElevatorPosition } from "../maps.ts";
 import { TILE_SIZE } from "../loader.ts";
 
@@ -187,6 +187,8 @@ export function level1Scene(k: KaboomCtx): void {
   // Show intro dialogue
   showDialogue(k, LEVEL_DIALOGUES[1].intro, () => {
     gameState.setDialogueActive(false);
+    // Show mask description after dialogue
+    showMaskDescription(k, 1);
   });
 }
 

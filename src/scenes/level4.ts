@@ -1,4 +1,5 @@
-// Level 4: The Football Stadium - Theatre of Dreams with chaotic red players
+// Level 4: The Red Stadium - Football Dribbling Challenge
+// Kick the ball into the goal while avoiding Comedy Defense AI
 import { KaboomCtx, GameObj } from "kaboom";
 import { MaskManager } from "../mechanics/MaskManager.ts";
 import { setupPauseSystem } from "../mechanics/PauseSystem.ts";
@@ -6,318 +7,517 @@ import { gameState } from "../state.ts";
 import { LEVEL_DIALOGUES, MASKS } from "../constants.ts";
 import { showDialogue } from "./dialogue.ts";
 import { CameraController } from "../camera.ts";
-import { createGameUI, updateGameUI } from "../ui.ts";
+import { createGameUI, updateGameUI, showMaskDescription } from "../ui.ts";
 import { LEVEL_4_MAP, getPlayerSpawn, getElevatorPosition } from "../maps.ts";
 import { TILE_SIZE } from "../loader.ts";
+
+// ============= LEVEL 4 CONSTANTS =============
+const DEFENDER_NAMES = ["A Bủ", "Mắc Hài", "Vuốt Phó", "A Lực", "Anh Long", "A Hoàng", "A Núi"];
+const BALL_KICK_FORCE = 350;
+const BALL_DRAG = 3;
+const DEFENDER_COUNT = 7;
 
 export function level4Scene(k: KaboomCtx): void {
   const map = LEVEL_4_MAP;
   
-  // Setup pause system (ESC to pause)
   setupPauseSystem(k);
   
-  // Initialize camera with zoom
   const camera = new CameraController(k, {
-    zoom: 3,
-    lerpSpeed: 0.1,
-    lookAheadDistance: 20
+    zoom: 2.5,
+    lerpSpeed: 0.12,
+    lookAheadDistance: 25
   });
-  
   camera.setBounds(0, 0, map.width, map.height);
 
-  // Initialize mask manager
   const maskManager = new MaskManager(k);
-  
-  // Prepare player state
   gameState.prepareForLevel(4);
-
-  // Build the level from ASCII map
   buildLevel(k, map);
 
-  // Get spawn positions from map
   const playerSpawn = getPlayerSpawn(map);
   const elevatorPos = getElevatorPosition(map);
 
-  // Create player
-  const player = createPlayer(k, playerSpawn.x, playerSpawn.y, maskManager);
-  maskManager.initPlayerMask(player);
+  // ============= START POSITIONS (for reset) =============
+  const playerStartPos = { x: playerSpawn.x, y: playerSpawn.y };
+  const ballStartPos = { x: map.width / 2, y: map.height - TILE_SIZE * 4 };
 
-  // Snap camera to player initially
-  camera.snapTo(k.vec2(playerSpawn.x, playerSpawn.y));
-
-  // Create elevator (goal)
-  k.add([
-    k.sprite("elevator"),
-    k.pos(elevatorPos.x, elevatorPos.y),
-    k.anchor("center"),
-    k.area(),
-    k.z(5),
-    "elevator"
-  ]);
-
-  // ============= FOOTBALL STADIUM DECORATIONS =============
-  
-  // Green grass background overlay
+  // ============= BUILD STADIUM VISUALS =============
+  // Green grass background
   k.add([
     k.rect(map.width, map.height),
     k.pos(0, 0),
-    k.color(40, 120, 40),
+    k.color(34, 139, 34), // Forest green
     k.z(-1)
   ]);
 
   // White yard lines (horizontal)
-  const yardLineCount = 6;
+  const yardLineCount = 8;
   for (let i = 1; i < yardLineCount; i++) {
     const lineY = (map.height / yardLineCount) * i;
     k.add([
-      k.rect(map.width - TILE_SIZE * 4, 2),
-      k.pos(TILE_SIZE * 2, lineY),
+      k.rect(map.width - TILE_SIZE * 3, 2),
+      k.pos(TILE_SIZE * 1.5, lineY),
       k.color(255, 255, 255),
-      k.opacity(0.6),
+      k.opacity(0.7),
       k.z(0)
     ]);
   }
 
   // Center circle
   k.add([
-    k.circle(40),
+    k.circle(50),
     k.pos(map.width / 2, map.height / 2),
     k.anchor("center"),
     k.color(255, 255, 255),
     k.opacity(0),
-    k.outline(2, k.rgb(255, 255, 255)),
+    k.outline(3, k.rgb(255, 255, 255)),
     k.z(0)
   ]);
 
-  // Center line (vertical)
+  // Center line
   k.add([
-    k.rect(2, map.height - TILE_SIZE * 4),
-    k.pos(map.width / 2, TILE_SIZE * 2),
+    k.rect(map.width - TILE_SIZE * 3, 3),
+    k.pos(TILE_SIZE * 1.5, map.height / 2),
     k.color(255, 255, 255),
-    k.opacity(0.6),
+    k.opacity(0.7),
     k.z(0)
   ]);
 
-  // ============= ANIMATED CROWD ON SIDELINES =============
-  const crowdColors = [k.rgb(200, 50, 50), k.rgb(180, 40, 40), k.rgb(220, 60, 60)];
+  // ============= STADIUM CROWD (Sidelines) =============
+  const crowdColors = [k.rgb(200, 50, 50), k.rgb(180, 40, 40), k.rgb(220, 60, 60), k.rgb(255, 80, 80)];
   
-  // Top sideline crowd
-  for (let i = 0; i < 20; i++) {
-    const crowdX = TILE_SIZE * 1.5 + i * ((map.width - TILE_SIZE * 3) / 20);
+  // Left sideline crowd
+  for (let i = 0; i < 15; i++) {
+    const crowdY = TILE_SIZE * 2 + i * ((map.height - TILE_SIZE * 4) / 15);
     const crowdMember = k.add([
-      k.rect(8, 12),
-      k.pos(crowdX, TILE_SIZE * 0.8),
-      k.anchor("bot"),
-      k.color(crowdColors[i % 3]),
+      k.rect(10, 14),
+      k.pos(TILE_SIZE * 0.6, crowdY),
+      k.anchor("center"),
+      k.color(crowdColors[i % crowdColors.length]),
       k.z(2),
-      {
-        baseY: TILE_SIZE * 0.8,
-        jumpOffset: k.rand(0, Math.PI * 2),
-        isJumping: false
-      }
+      { baseX: TILE_SIZE * 0.6, wavePhase: k.rand(0, Math.PI * 2) }
     ]);
     
-    // Crowd jumping animation using loop
-    k.loop(0.5 + k.rand(0, 0.3), () => {
-      if (crowdMember.exists()) {
-        crowdMember.isJumping = !crowdMember.isJumping;
-      }
-    });
-    
     crowdMember.onUpdate(() => {
-      crowdMember.pos.y = crowdMember.baseY - (crowdMember.isJumping ? 6 : 0);
+      crowdMember.pos.x = crowdMember.baseX + Math.sin(k.time() * 3 + crowdMember.wavePhase) * 3;
     });
   }
 
-  // Bottom sideline crowd
-  for (let i = 0; i < 20; i++) {
-    const crowdX = TILE_SIZE * 1.5 + i * ((map.width - TILE_SIZE * 3) / 20);
+  // Right sideline crowd
+  for (let i = 0; i < 15; i++) {
+    const crowdY = TILE_SIZE * 2 + i * ((map.height - TILE_SIZE * 4) / 15);
     const crowdMember = k.add([
-      k.rect(8, 12),
-      k.pos(crowdX, map.height - TILE_SIZE * 0.3),
-      k.anchor("bot"),
-      k.color(crowdColors[i % 3]),
+      k.rect(10, 14),
+      k.pos(map.width - TILE_SIZE * 0.6, crowdY),
+      k.anchor("center"),
+      k.color(crowdColors[i % crowdColors.length]),
       k.z(2),
-      {
-        baseY: map.height - TILE_SIZE * 0.3,
-        isJumping: false
-      }
+      { baseX: map.width - TILE_SIZE * 0.6, wavePhase: k.rand(0, Math.PI * 2) }
     ]);
     
-    k.loop(0.5 + k.rand(0, 0.3), () => {
-      if (crowdMember.exists()) {
-        crowdMember.isJumping = !crowdMember.isJumping;
-      }
-    });
-    
     crowdMember.onUpdate(() => {
-      crowdMember.pos.y = crowdMember.baseY - (crowdMember.isJumping ? 6 : 0);
+      crowdMember.pos.x = crowdMember.baseX + Math.sin(k.time() * 3 + crowdMember.wavePhase) * 3;
     });
   }
 
-  // ============= RED DEVIL STATUES IN CORNERS =============
-  const corners = [
-    { x: TILE_SIZE * 2.5, y: TILE_SIZE * 2.5 },
-    { x: map.width - TILE_SIZE * 2.5, y: TILE_SIZE * 2.5 },
-    { x: TILE_SIZE * 2.5, y: map.height - TILE_SIZE * 2.5 },
-    { x: map.width - TILE_SIZE * 2.5, y: map.height - TILE_SIZE * 2.5 }
-  ];
+  // ============= GOAL AREA (Top center) =============
+  const goalWidth = 120;
+  const goalHeight = 40;
+  const goalX = map.width / 2;
+  const goalY = TILE_SIZE * 2.5;
 
-  corners.forEach(corner => {
-    // Statue base
-    k.add([
-      k.rect(20, 8),
-      k.pos(corner.x, corner.y + 10),
-      k.anchor("center"),
-      k.color(60, 60, 60),
-      k.z(3)
-    ]);
-    
-    // Devil statue body
-    k.add([
-      k.text("👹", { size: 20 }),
-      k.pos(corner.x, corner.y),
-      k.anchor("center"),
-      k.z(4)
-    ]);
-    
-    // "Tượng Quỷ Đỏ" label
-    k.add([
-      k.text("Quỷ Đỏ", { size: 5 }),
-      k.pos(corner.x, corner.y + 18),
-      k.anchor("center"),
-      k.color(200, 50, 50),
-      k.z(4)
-    ]);
-  });
+  // Goal posts (white frame)
+  k.add([
+    k.rect(goalWidth + 10, goalHeight + 6, { radius: 3 }),
+    k.pos(goalX, goalY),
+    k.anchor("center"),
+    k.color(255, 255, 255),
+    k.outline(4, k.rgb(200, 200, 200)),
+    k.z(4)
+  ]);
 
-  // ============= RED PLAYERS (Football Players in Red Kits) =============
-  const redPlayers: GameObj<any>[] = [];
-  const RED_PLAYER_COUNT = 15; // High density crowd
-  
-  // Random names pool for Red Players (Fan Áo Đỏ) - Updated with new names
-  const NAME_POOL = ["Anh Lực", "Anh Long", "Anh Vực", "Anh Những", "Anh Thể", "A Hoàng", "Vuốt Phó", "A Núi", "A Bủ", "Mắc Hài"];
+  // Goal net (inner dark area)
+  k.add([
+    k.rect(goalWidth, goalHeight, { radius: 2 }),
+    k.pos(goalX, goalY),
+    k.anchor("center"),
+    k.color(30, 30, 30),
+    k.z(5)
+  ]);
 
-  // Create Red Players (Football players) - ensuring safe distance from player spawn
-  for (let i = 0; i < RED_PLAYER_COUNT; i++) {
-    let x = k.rand(TILE_SIZE * 3, map.width - TILE_SIZE * 3);
-    let y = k.rand(TILE_SIZE * 3, map.height - TILE_SIZE * 3);
+  // Net pattern (visual)
+  for (let i = 0; i < 6; i++) {
+    k.add([
+      k.rect(2, goalHeight - 8),
+      k.pos(goalX - goalWidth / 2 + 10 + i * 18, goalY),
+      k.anchor("center"),
+      k.color(150, 150, 150),
+      k.opacity(0.4),
+      k.z(6)
+    ]);
+  }
+
+  // Goal detection area (invisible trigger)
+  k.add([
+    k.rect(goalWidth - 20, goalHeight - 10),
+    k.pos(goalX, goalY),
+    k.anchor("center"),
+    k.area(),
+    k.opacity(0),
+    k.z(3),
+    "goal_area"
+  ]);
+
+  // Goal label
+  k.add([
+    k.text("⚽ GOAL ⚽", { size: 8 }),
+    k.pos(goalX, goalY - goalHeight / 2 - 12),
+    k.anchor("center"),
+    k.color(255, 215, 0),
+    k.z(10)
+  ]);
+
+  // ============= THE BALL (Chicken Jerky Box look) =============
+  const ball = k.add([
+    k.sprite("jerky"),
+    k.pos(ballStartPos.x, ballStartPos.y),
+    k.anchor("center"),
+    k.scale(1.2),
+    k.area({ scale: k.vec2(0.8, 0.8) }),
+    k.z(8),
+    "ball",
+    {
+      vel: k.vec2(0, 0),
+      drag: BALL_DRAG
+    }
+  ]);
+
+  // Ball physics update
+  ball.onUpdate(() => {
+    if (gameState.isPaused() || gameState.isDialogueActive()) return;
     
-    // Ensure red players don't spawn too close to player spawn point
-    let attempts = 0;
-    while (k.vec2(x, y).dist(k.vec2(playerSpawn.x, playerSpawn.y)) < TILE_SIZE * 4 && attempts < 10) {
-      x = k.rand(TILE_SIZE * 3, map.width - TILE_SIZE * 3);
-      y = k.rand(TILE_SIZE * 3, map.height - TILE_SIZE * 3);
-      attempts++;
+    const dt = k.dt();
+    
+    // Apply velocity
+    ball.pos = ball.pos.add(ball.vel.scale(dt));
+    
+    // Apply drag (friction)
+    ball.vel = ball.vel.scale(1 - ball.drag * dt);
+    
+    // Stop if very slow
+    if (ball.vel.len() < 5) {
+      ball.vel = k.vec2(0, 0);
     }
     
-    const randomName = NAME_POOL[Math.floor(k.rand(0, NAME_POOL.length))];
+    // Bounce off walls
+    if (ball.pos.x < TILE_SIZE * 1.5) {
+      ball.pos.x = TILE_SIZE * 1.5;
+      ball.vel.x *= -0.6;
+    }
+    if (ball.pos.x > map.width - TILE_SIZE * 1.5) {
+      ball.pos.x = map.width - TILE_SIZE * 1.5;
+      ball.vel.x *= -0.6;
+    }
+    if (ball.pos.y < TILE_SIZE * 1.5) {
+      ball.pos.y = TILE_SIZE * 1.5;
+      ball.vel.y *= -0.6;
+    }
+    if (ball.pos.y > map.height - TILE_SIZE * 1.5) {
+      ball.pos.y = map.height - TILE_SIZE * 1.5;
+      ball.vel.y *= -0.6;
+    }
+  });
+
+  // ============= PLAYER =============
+  const player = createPlayer(k, playerStartPos.x, playerStartPos.y, maskManager, map);
+  maskManager.initPlayerMask(player);
+  camera.snapTo(k.vec2(playerSpawn.x, playerSpawn.y));
+
+  // ============= COMEDY DEFENSE AI (Defenders) =============
+  const defenders: GameObj<any>[] = [];
+  
+  type DefenderState = "confused" | "chase";
+  
+  for (let i = 0; i < DEFENDER_COUNT; i++) {
+    // Spread defenders across the field
+    const defX = TILE_SIZE * 3 + k.rand(0, map.width - TILE_SIZE * 6);
+    const defY = TILE_SIZE * 5 + k.rand(0, map.height - TILE_SIZE * 10);
     
-    const redPlayer = k.add([
-      k.rect(10, 14, { radius: 2 }),
-      k.pos(x, y),
+    const defender = k.add([
+      k.rect(12, 16, { radius: 2 }),
+      k.pos(defX, defY),
       k.anchor("center"),
       k.area(),
       k.color(200, 40, 40), // Red kit
-      k.outline(1, k.rgb(255, 255, 255)), // White trim
-      k.z(5),
-      "red-player",
+      k.outline(2, k.rgb(255, 255, 255)),
+      k.z(7),
+      "defender",
       "enemy",
       {
-        speed: k.rand(60, 120),
-        dir: k.vec2(k.rand(-1, 1), k.rand(-1, 1)).unit(),
-        dirChangeTimer: 0,
-        dirChangeInterval: k.rand(0.3, 0.8), // Chaotic direction changes
+        name: DEFENDER_NAMES[i % DEFENDER_NAMES.length],
+        jerseyNum: Math.floor(k.rand(1, 99)),
+        state: "confused" as DefenderState,
+        speed: k.rand(70, 110),
+        confusedDir: k.vec2(k.rand(-1, 1), k.rand(-1, 1)).unit(),
+        confusedTimer: 0,
+        confusedInterval: k.rand(0.4, 1.0),
         circlePhase: k.rand(0, Math.PI * 2),
-        circleRadius: k.rand(20, 50),
-        displayName: randomName,
-        jerseyNumber: Math.floor(k.rand(1, 99))
+        chaseRadius: k.rand(80, 140) // Distance to start chasing ball
       }
     ]);
-    
-    // Draw player details (name + jersey number)
-    redPlayer.onDraw(() => {
+
+    // Draw defender details
+    defender.onDraw(() => {
       // Name above head
       k.drawText({
-        text: redPlayer.displayName,
-        pos: k.vec2(0, -16),
+        text: defender.name,
+        pos: k.vec2(0, -18),
         size: 5,
         anchor: "center",
         color: k.rgb(255, 220, 220)
       });
-      // Jersey number on back
+      // Jersey number
       k.drawText({
-        text: String(redPlayer.jerseyNumber),
+        text: String(defender.jerseyNum),
         pos: k.vec2(0, 0),
-        size: 6,
+        size: 7,
         anchor: "center",
         color: k.rgb(255, 255, 255)
       });
-    });
-    
-    redPlayers.push(redPlayer);
-  }
-
-  // Chaotic Defense AI update
-  function updateRedPlayer(rp: GameObj<any>, dt: number): void {
-    rp.dirChangeTimer += dt;
-    
-    // Change direction randomly (Comedy Defense)
-    if (rp.dirChangeTimer >= rp.dirChangeInterval) {
-      rp.dirChangeTimer = 0;
-      rp.dirChangeInterval = k.rand(0.3, 0.8);
-      
-      // Choose random new direction (circular loop pattern sometimes)
-      if (k.rand() < 0.4) {
-        // Circular loop movement
-        rp.circlePhase += k.rand(0.5, 1.5);
-        rp.dir = k.vec2(
-          Math.cos(rp.circlePhase),
-          Math.sin(rp.circlePhase)
-        );
+      // State indicator
+      if (defender.state === "confused") {
+        k.drawText({
+          text: "?",
+          pos: k.vec2(8, -8),
+          size: 6,
+          color: k.rgb(255, 255, 100)
+        });
       } else {
-        // Pure random direction
-        rp.dir = k.vec2(k.rand(-1, 1), k.rand(-1, 1)).unit();
+        k.drawText({
+          text: "!",
+          pos: k.vec2(8, -8),
+          size: 6,
+          color: k.rgb(255, 50, 50)
+        });
       }
+    });
+
+    defenders.push(defender);
+  }
+
+  // Defender AI Update
+  function updateDefender(def: GameObj<any>, dt: number): void {
+    if (gameState.isTimeFrozen()) {
+      def.color = k.rgb(100, 60, 60); // Frozen color
+      return;
+    } else {
+      def.color = k.rgb(200, 40, 40);
     }
+
+    const distToBall = def.pos.dist(ball.pos);
     
-    // Move
-    rp.move(rp.dir.scale(rp.speed));
-    
-    // Bounce off walls
-    if (rp.pos.x < TILE_SIZE || rp.pos.x > map.width - TILE_SIZE) {
-      rp.dir.x *= -1;
-      rp.pos.x = k.clamp(rp.pos.x, TILE_SIZE, map.width - TILE_SIZE);
+    // State transitions
+    if (distToBall < def.chaseRadius && ball.vel.len() > 20) {
+      def.state = "chase";
+    } else if (distToBall > def.chaseRadius * 1.5 || ball.vel.len() < 10) {
+      def.state = "confused";
     }
-    if (rp.pos.y < TILE_SIZE || rp.pos.y > map.height - TILE_SIZE) {
-      rp.dir.y *= -1;
-      rp.pos.y = k.clamp(rp.pos.y, TILE_SIZE, map.height - TILE_SIZE);
+
+    if (def.state === "confused") {
+      // Comedy: Run in small circles
+      def.confusedTimer += dt;
+      if (def.confusedTimer >= def.confusedInterval) {
+        def.confusedTimer = 0;
+        def.confusedInterval = k.rand(0.3, 0.8);
+        
+        // Circular motion
+        def.circlePhase += k.rand(0.8, 1.5);
+        def.confusedDir = k.vec2(
+          Math.cos(def.circlePhase),
+          Math.sin(def.circlePhase)
+        );
+      }
+      def.move(def.confusedDir.scale(def.speed * 0.5));
+    } else {
+      // Chase the ball aggressively
+      const dirToBall = ball.pos.sub(def.pos).unit();
+      def.move(dirToBall.scale(def.speed * 1.3));
     }
-    
-    // Red Players bump into each other and change direction
-    redPlayers.forEach(other => {
-      if (other === rp || !other.exists()) return;
-      const dist = rp.pos.dist(other.pos);
-      if (dist < 16) {
-        // Bump! Change directions chaotically
-        rp.dir = rp.pos.sub(other.pos).unit();
-        other.dir = other.pos.sub(rp.pos).unit();
+
+    // Keep within bounds
+    def.pos.x = k.clamp(def.pos.x, TILE_SIZE * 2, map.width - TILE_SIZE * 2);
+    def.pos.y = k.clamp(def.pos.y, TILE_SIZE * 3, map.height - TILE_SIZE * 2);
+
+    // Defenders bump each other
+    defenders.forEach(other => {
+      if (other === def || !other.exists()) return;
+      if (def.pos.dist(other.pos) < 18) {
+        const pushDir = def.pos.sub(other.pos).unit();
+        def.pos = def.pos.add(pushDir.scale(2));
       }
     });
   }
 
-  // Stadium title text
+  // ============= TACKLE MECHANIC (VAR Check!) =============
+  let isTackled = false;
+
+  function triggerTackle(): void {
+    if (isTackled) return;
+    isTackled = true;
+
+    // Freeze game briefly
+    gameState.setPaused(true);
+
+    // VAR Check visual
+    const varOverlay = k.add([
+      k.rect(k.width(), k.height()),
+      k.pos(0, 0),
+      k.color(0, 0, 0),
+      k.opacity(0.7),
+      k.z(500),
+      k.fixed()
+    ]);
+
+    const varText = k.add([
+      k.text("🔴 VAR CHECK! 🔴", { size: 24 }),
+      k.pos(k.width() / 2, k.height() / 2 - 20),
+      k.anchor("center"),
+      k.color(255, 50, 50),
+      k.z(501),
+      k.fixed()
+    ]);
+
+    const whistleText = k.add([
+      k.text("📣 FOUL! Reset position...", { size: 14 }),
+      k.pos(k.width() / 2, k.height() / 2 + 20),
+      k.anchor("center"),
+      k.color(255, 255, 200),
+      k.z(501),
+      k.fixed()
+    ]);
+
+    camera.shake(10, 0.3);
+
+    k.wait(0.5, () => {
+      // Reset positions
+      player.pos = k.vec2(playerStartPos.x, playerStartPos.y);
+      player.knockbackVel = k.vec2(0, 0);
+      ball.pos = k.vec2(ballStartPos.x, ballStartPos.y);
+      ball.vel = k.vec2(0, 0);
+
+      varOverlay.destroy();
+      varText.destroy();
+      whistleText.destroy();
+
+      gameState.setPaused(false);
+      isTackled = false;
+    });
+  }
+
+  // Player kicks ball on collision
+  player.onCollide("ball", () => {
+    if (gameState.isPaused() || gameState.isDialogueActive()) return;
+    if (player.dir.len() < 0.1) return; // Only kick if moving
+
+    // Kick ball in player's movement direction
+    const kickDir = player.dir.unit();
+    ball.vel = kickDir.scale(BALL_KICK_FORCE);
+
+    // Small feedback
+    camera.shake(2, 0.1);
+  });
+
+  // Defender tackles player
+  player.onCollide("defender", () => {
+    if (gameState.isPlayerEthereal()) return;
+    if (gameState.isInvincible()) return;
+    if (gameState.isPlayerShielding()) {
+      // Shield pushes defender away
+      return;
+    }
+    triggerTackle();
+  });
+
+  // Defender tackles ball
+  ball.onCollide("defender", () => {
+    if (gameState.isTimeFrozen()) return;
+    triggerTackle();
+  });
+
+  // ============= GOAL DETECTION =============
+  let goalScored = false;
+
+  ball.onCollide("goal_area", () => {
+    if (goalScored) return;
+    goalScored = true;
+
+    // GOAL celebration!
+    gameState.setPaused(true);
+
+    const goalOverlay = k.add([
+      k.rect(k.width(), k.height()),
+      k.pos(0, 0),
+      k.color(0, 50, 0),
+      k.opacity(0.8),
+      k.z(500),
+      k.fixed()
+    ]);
+
+    k.add([
+      k.text("⚽ GOOOOAL!! ⚽", { size: 28 }),
+      k.pos(k.width() / 2, k.height() / 2),
+      k.anchor("center"),
+      k.color(255, 215, 0),
+      k.z(501),
+      k.fixed()
+    ]);
+
+    camera.shake(15, 0.5);
+
+    k.wait(2, () => {
+      goalOverlay.destroy();
+      gameState.setPaused(false);
+      
+      // Collect mask and proceed
+      gameState.addCollectedMask(MASKS.shield);
+      showDialogue(k, LEVEL_DIALOGUES[4].outro!, () => {
+        k.go("gate_opening");
+      });
+    });
+  });
+
+  // ============= ELEVATOR (hidden until goal) =============
   k.add([
-    k.text("⚽ SÂN VẬN ĐỘNG ĐỎ ⚽", { size: 7 }),
-    k.pos(map.width / 2, TILE_SIZE * 1.3),
+    k.sprite("elevator"),
+    k.pos(elevatorPos.x, elevatorPos.y),
     k.anchor("center"),
-    k.color(255, 255, 200),
-    k.z(100)
+    k.area(),
+    k.opacity(0.3),
+    k.z(5),
+    "elevator"
   ]);
 
   // Create UI
   const ui = createGameUI(k);
 
+  // Stadium title
+  k.add([
+    k.text("⚽ SÂN VẬN ĐỘNG ĐỎ ⚽", { size: 8 }),
+    k.pos(map.width / 2, map.height - TILE_SIZE * 1.2),
+    k.anchor("center"),
+    k.color(255, 255, 200),
+    k.z(10)
+  ]);
+
+  // Instruction text
+  k.add([
+    k.text("Kick the Jerky Box into the Goal!", { size: 6 }),
+    k.pos(map.width / 2, map.height - TILE_SIZE * 0.6),
+    k.anchor("center"),
+    k.color(200, 200, 150),
+    k.z(10)
+  ]);
+
+  // ============= MAIN UPDATE LOOP =============
   k.onUpdate(() => {
     if (gameState.isPaused() || gameState.isDialogueActive()) return;
 
@@ -325,72 +525,29 @@ export function level4Scene(k: KaboomCtx): void {
     maskManager.update(dt);
     maskManager.updatePlayerMask();
 
-    // Update camera to follow player
+    // Camera follows player (with slight pull toward ball)
     camera.follow(player, k.mousePos());
 
-    // ===== UPDATE RED PLAYERS (Chaotic Defense AI) =====
-    redPlayers.forEach(rp => {
-      if (rp.exists() && !gameState.isTimeFrozen()) {
-        updateRedPlayer(rp, dt);
-      } else if (gameState.isTimeFrozen()) {
-        rp.color = k.rgb(150, 80, 80); // Dimmed when frozen
-      } else {
-        rp.color = k.rgb(220, 50, 50);
+    // Update defenders
+    defenders.forEach(def => {
+      if (def.exists()) {
+        updateDefender(def, dt);
       }
     });
 
-    // Update UI with objective pointer
-    updateGameUI(k, ui, maskManager, k.vec2(elevatorPos.x, elevatorPos.y), camera);
-  });
-
-  // Red Player collision - damage and knockback
-  player.onCollide("red-player", (redPlayer: GameObj<any>) => {
-    if (gameState.isPlayerEthereal()) return;
-    if (gameState.isInvincible()) return;
-    if (gameState.isPlayerShielding()) return;
-
-    gameState.damagePlayer(1);
-    camera.shake(8, 0.3);
-
-    // Velocity-based knockback (respects walls via move())
-    const knockDir = player.pos.sub(redPlayer.pos).unit();
-    player.knockbackVel = knockDir.scale(800); // High initial velocity, decays in onUpdate
-
-    player.color = k.rgb(255, 100, 100);
-    k.wait(0.15, () => {
-      if (gameState.isPlayerShielding()) {
-        player.color = k.rgb(255, 215, 0);
-      } else {
-        player.color = k.rgb(79, 195, 247);
-      }
-    });
-
-    if (gameState.isPlayerDead()) {
-      k.go("gameover");
-    }
-
-    gameState.setInvincible(true);
-    k.wait(1, () => {
-      gameState.setInvincible(false);
-    });
-  });
-
-  // Elevator collision - level complete
-  player.onCollide("elevator", () => {
-    gameState.addCollectedMask(MASKS.shield);
-    
-    showDialogue(k, LEVEL_DIALOGUES[4].outro!, () => {
-      k.go("gate_opening");
-    });
+    // Update UI
+    updateGameUI(k, ui, maskManager, k.vec2(goalX, goalY), camera);
   });
 
   // Show intro dialogue
   showDialogue(k, LEVEL_DIALOGUES[4].intro, () => {
     gameState.setDialogueActive(false);
+    // Show mask description after dialogue
+    showMaskDescription(k, 4);
   });
 }
 
-// Build level tiles from ASCII map
+// ============= BUILD LEVEL =============
 function buildLevel(k: KaboomCtx, map: typeof LEVEL_4_MAP): void {
   for (let y = 0; y < map.tiles.length; y++) {
     for (let x = 0; x < map.tiles[y].length; x++) {
@@ -398,6 +555,7 @@ function buildLevel(k: KaboomCtx, map: typeof LEVEL_4_MAP): void {
       const posX = x * TILE_SIZE + TILE_SIZE / 2;
       const posY = y * TILE_SIZE + TILE_SIZE / 2;
 
+      // Floor tiles (grass)
       k.add([
         k.sprite(map.floorSprite),
         k.pos(posX, posY),
@@ -419,7 +577,7 @@ function buildLevel(k: KaboomCtx, map: typeof LEVEL_4_MAP): void {
     }
   }
   
-  // Add map boundaries
+  // Map boundaries
   const mapWidth = map.tiles[0].length * TILE_SIZE;
   const mapHeight = map.tiles.length * TILE_SIZE;
   const boundaryThickness = 16;
@@ -441,22 +599,22 @@ function buildLevel(k: KaboomCtx, map: typeof LEVEL_4_MAP): void {
   });
 }
 
-// Create player entity
-function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManager): GameObj<any> {
+// ============= CREATE PLAYER =============
+function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManager, map: typeof LEVEL_4_MAP): GameObj<any> {
   const player = k.add([
     k.sprite("player"),
     k.pos(x, y),
     k.anchor("center"),
     k.area(),
-    k.body(), // Use default physics
+    k.body(),
     k.color(79, 195, 247),
     k.opacity(1),
     k.z(10),
     "player",
     {
-      speed: 100, // Slightly faster for dodging
+      speed: 120, // Fast for dribbling
       dir: k.vec2(0, 0),
-      knockbackVel: k.vec2(0, 0) // Velocity-based knockback
+      knockbackVel: k.vec2(0, 0)
     }
   ]);
 
@@ -465,11 +623,9 @@ function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManag
 
     const dt = k.dt();
 
-    // ============= APPLY KNOCKBACK VELOCITY =============
-    // Use move() which respects physics/walls instead of direct pos modification
+    // Apply knockback
     if (player.knockbackVel.len() > 1) {
       player.move(player.knockbackVel);
-      // Decay knockback velocity (friction)
       player.knockbackVel = player.knockbackVel.lerp(k.vec2(0, 0), dt * 10);
     } else {
       player.knockbackVel = k.vec2(0, 0);
@@ -486,14 +642,15 @@ function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManag
       player.move(player.dir.scale(player.speed));
     }
 
-    // ============= BOUNDARY CLAMP (Safety net) =============
+    // Boundary clamp
     const minX = TILE_SIZE * 1.5;
     const minY = TILE_SIZE * 1.5;
-    const maxX = LEVEL_4_MAP.width - TILE_SIZE * 1.5;
-    const maxY = LEVEL_4_MAP.height - TILE_SIZE * 1.5;
+    const maxX = map.width - TILE_SIZE * 1.5;
+    const maxY = map.height - TILE_SIZE * 1.5;
     player.pos.x = k.clamp(player.pos.x, minX, maxX);
     player.pos.y = k.clamp(player.pos.y, minY, maxY);
 
+    // Shield color
     if (gameState.isPlayerShielding()) {
       player.color = k.rgb(255, 215, 0);
     } else {

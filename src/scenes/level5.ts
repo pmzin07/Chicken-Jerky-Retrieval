@@ -86,11 +86,12 @@ export function level5Scene(k: KaboomCtx): void {
   const ui = createGameUI(k);
   
   const TIMER_BAR_WIDTH = 240;
-  const TIMER_BAR_HEIGHT = 16;
+  const TIMER_BAR_HEIGHT = 14;
+  const TIMER_BAR_Y = 50; // Moved down to avoid overlap with "Floor 5" title
   
   const timerBackground = k.add([
     k.rect(TIMER_BAR_WIDTH + 4, TIMER_BAR_HEIGHT + 4),
-    k.pos(k.width() / 2, 25),
+    k.pos(k.width() / 2, TIMER_BAR_Y),
     k.anchor("center"),
     k.color(30, 30, 30),
     k.outline(2, k.rgb(80, 80, 80)),
@@ -101,7 +102,7 @@ export function level5Scene(k: KaboomCtx): void {
 
   const timerBar = k.add([
     k.rect(TIMER_BAR_WIDTH, TIMER_BAR_HEIGHT),
-    k.pos(k.width() / 2 - TIMER_BAR_WIDTH / 2, 25 - TIMER_BAR_HEIGHT / 2),
+    k.pos(k.width() / 2 - TIMER_BAR_WIDTH / 2, TIMER_BAR_Y - TIMER_BAR_HEIGHT / 2),
     k.color(255, 215, 0),
     k.opacity(1),
     k.z(301),
@@ -109,8 +110,8 @@ export function level5Scene(k: KaboomCtx): void {
   ]);
 
   const timerText = k.add([
-    k.text(`Survive: ${FIGHT_DURATION}s`, { size: 11 }),
-    k.pos(k.width() / 2, 25),
+    k.text(`Survive: ${FIGHT_DURATION}s`, { size: 10 }),
+    k.pos(k.width() / 2, TIMER_BAR_Y),
     k.anchor("center"),
     k.color(255, 255, 255),
     k.opacity(1),
@@ -120,7 +121,7 @@ export function level5Scene(k: KaboomCtx): void {
 
   const phaseText = k.add([
     k.text("GET READY!", { size: 9 }),
-    k.pos(k.width() / 2, 45),
+    k.pos(k.width() / 2, TIMER_BAR_Y + 18),
     k.anchor("center"),
     k.color(255, 200, 100),
     k.z(302),

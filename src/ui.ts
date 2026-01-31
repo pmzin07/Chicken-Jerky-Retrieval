@@ -352,3 +352,85 @@ export function showAbilityText(k: KaboomCtx, text: string): void {
     k.easings.easeOutQuad
   );
 }
+
+// ============= MASK DESCRIPTION DISPLAY (Level Start) =============
+const MASK_DESCRIPTIONS: Record<number, string> = {
+  1: "Mặt Nạ Câm Lặng: Kích hoạt để Tàng Hình trong thời gian ngắn. Tránh camera!",
+  2: "Mặt Nạ Trốn Nợ: Kích hoạt để đi xuyên vật thể và bất tử. Né 'quà' của sếp!",
+  3: "Mặt Nạ Băng Giá: Kích hoạt để đóng băng kẻ địch và sao rơi. Tạo lối đi!",
+  4: "Mặt Nạ Khiên: Kích hoạt để đẩy lùi cầu thủ đối phương. Dọn đường sút bóng!"
+};
+
+export function showMaskDescription(k: KaboomCtx, level: number): void {
+  const description = MASK_DESCRIPTIONS[level];
+  if (!description) return;
+
+  // Dark overlay background
+  const overlay = k.add([
+    k.rect(k.width(), k.height()),
+    k.pos(0, 0),
+    k.color(0, 0, 0),
+    k.opacity(0),
+    k.z(1500),
+    k.fixed()
+  ]);
+
+  // Text box background
+  const boxWidth = Math.min(k.width() - 60, 500);
+  const boxHeight = 80;
+  const textBox = k.add([
+    k.rect(boxWidth, boxHeight, { radius: 10 }),
+    k.pos(k.width() / 2, k.height() / 2),
+    k.anchor("center"),
+    k.color(30, 30, 50),
+    k.outline(3, k.rgb(100, 80, 200)),
+    k.opacity(0),
+    k.z(1501),
+    k.fixed()
+  ]);
+
+  // Floor label
+  const floorLabel = k.add([
+    k.text(`Floor ${level}`, { size: 14 }),
+    k.pos(k.width() / 2, k.height() / 2 - 25),
+    k.anchor("center"),
+    k.color(255, 200, 100),
+    k.opacity(0),
+    k.z(1502),
+    k.fixed()
+  ]);
+
+  // Description text
+  const descText = k.add([
+    k.text(description, { size: 12, width: boxWidth - 30 }),
+    k.pos(k.width() / 2, k.height() / 2 + 10),
+    k.anchor("center"),
+    k.color(220, 220, 255),
+    k.opacity(0),
+    k.z(1502),
+    k.fixed()
+  ]);
+
+  // Fade in
+  k.tween(0, 0.7, 0.4, (val) => { overlay.opacity = val; }, k.easings.easeOutQuad);
+  k.tween(0, 1, 0.4, (val) => { 
+    textBox.opacity = val; 
+    floorLabel.opacity = val;
+    descText.opacity = val;
+  }, k.easings.easeOutQuad);
+
+  // Hold for 2.5s then fade out
+  k.wait(3, () => {
+    k.tween(0.7, 0, 0.5, (val) => { overlay.opacity = val; }, k.easings.easeInQuad);
+    k.tween(1, 0, 0.5, (val) => { 
+      textBox.opacity = val; 
+      floorLabel.opacity = val;
+      descText.opacity = val;
+    }, k.easings.easeInQuad).onEnd(() => {
+      overlay.destroy();
+      textBox.destroy();
+      floorLabel.destroy();
+      descText.destroy();
+    });
+  });
+}
