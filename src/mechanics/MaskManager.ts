@@ -178,10 +178,42 @@ export class MaskManager {
   }
 
   // Mask of Silence - Null Zone (disable enemy abilities)
+  // BALANCE PATCH v3: Added bullet clear shockwave on activation
   private activateSilence(_player: GameObj<any>, mask: MaskData): void {
     gameState.setInvisible(true); // Repurposed: now disables enemy abilities
     
-    // Create null zone visual (dark expanding circle)
+    // === BALANCE PATCH v3: BULLET CLEAR SHOCKWAVE ===
+    // Upon activation, delete ALL existing projectiles on screen ("Get out of Jail Free" card)
+    const projectileTags = ["ice-shard", "homing-orb", "slow-bullet", "boss-projectile", "projectile"];
+    let clearedCount = 0;
+    
+    projectileTags.forEach(tag => {
+      this.k.get(tag).forEach((proj: GameObj<any>) => {
+        // Create destruction particle at each projectile position
+        for (let i = 0; i < 3; i++) {
+          const particle = this.k.add([
+            this.k.circle(4),
+            this.k.pos(proj.pos),
+            this.k.anchor("center"),
+            this.k.color(150, 50, 200),
+            this.k.opacity(0.8),
+            this.k.z(10)
+          ]);
+          const pAngle = this.k.rand(0, Math.PI * 2);
+          const pSpeed = this.k.rand(20, 50);
+          particle.onUpdate(() => {
+            particle.pos.x += Math.cos(pAngle) * pSpeed * this.k.dt();
+            particle.pos.y += Math.sin(pAngle) * pSpeed * this.k.dt();
+            particle.opacity -= 3 * this.k.dt();
+            if (particle.opacity <= 0) particle.destroy();
+          });
+        }
+        proj.destroy();
+        clearedCount++;
+      });
+    });
+    
+    // Create null zone visual (dark expanding circle) - BUFFED: Larger expansion
     const nullZone = this.k.add([
       this.k.circle(10),
       this.k.pos(_player.pos),
@@ -192,8 +224,8 @@ export class MaskManager {
       "null-zone"
     ]);
     
-    // Expand the zone
-    this.k.tween(10, 80, 0.3, (val) => {
+    // Expand the zone - BALANCE PATCH v3: Larger visual to match 400 radius
+    this.k.tween(10, 120, 0.3, (val) => {
       if (nullZone.exists()) {
         nullZone.radius = val;
       }
@@ -202,7 +234,12 @@ export class MaskManager {
     // Screen tint
     this.activateScreenTint("silence", mask.duration);
 
-    this.showAbilityText("NULL ZONE!");
+    // Show ability text with clear count if any were cleared
+    if (clearedCount > 0) {
+      this.showAbilityText(`NULL ZONE! (${clearedCount} cleared)`);
+    } else {
+      this.showAbilityText("NULL ZONE!");
+    }
 
     // End effect after duration
     this.k.wait(mask.duration, () => {

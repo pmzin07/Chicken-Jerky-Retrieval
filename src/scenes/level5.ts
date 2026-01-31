@@ -60,7 +60,7 @@ export function level5Scene(k: KaboomCtx): void {
   // Masks are almost spam-able to keep up with boss attack speed
   maskManager.setCooldownOverride("shield", 1.5);   // was 6s, balanced for rhythmic blocking
   maskManager.setCooldownOverride("ghost", 0.5);    // was 1.5s, spam-able for mobility
-  maskManager.setCooldownOverride("frozen", 1.0);   // was 10s
+  maskManager.setCooldownOverride("frozen", 2.0);   // BALANCE PATCH v3: 2.0s (was 1.0s) - must time correctly
   maskManager.setCooldownOverride("silence", 1.0);  // was 12s
 
   const playerSpawn = getPlayerSpawn(map);
@@ -352,7 +352,15 @@ export function level5Scene(k: KaboomCtx): void {
   let spiralActive = false;
   let bossStunned = false;
   let bossStunTimer = 0;
-  const BOSS_FREEZE_STUN_DURATION = 4.0; // Boss stunned for 4s when player uses freeze (was 1.5s)
+  
+  // === BALANCE PATCH v3: Diminishing Returns on Freeze ===
+  // 1st Freeze = 3.0s, 2nd = 1.5s, 3rd+ = 0.5s (prevents permastunning)
+  let freezeUseCount = 0;
+  function getFreezeDuration(): number {
+    if (freezeUseCount === 0) return 3.0;
+    if (freezeUseCount === 1) return 1.5;
+    return 0.5; // 3rd+ freeze
+  }
   
   function startIceSpiral(): void {
     if (bossStunned) return; // Can't attack while stunned
@@ -366,8 +374,8 @@ export function level5Scene(k: KaboomCtx): void {
     // Spawn ice shards in spiral pattern from boss
     // NERFED: Reduced from 4 arms to 3 for wider gaps
     const numArms = 3;
-    // NERFED: Reduced speed from 180 to 108 (40% reduction)
-    const baseSpeed = gameState.isTimeFrozen() ? 30 : 108;
+    // BALANCE PATCH v3: Increased speed by 20% (108 → 130) - tighter spiral, harder to dodge
+    const baseSpeed = gameState.isTimeFrozen() ? 36 : 130;
     
     for (let arm = 0; arm < numArms; arm++) {
       const angle = spiralAngle + (arm * Math.PI * 2 / numArms);
@@ -388,8 +396,8 @@ export function level5Scene(k: KaboomCtx): void {
       ]);
       
       shard.onUpdate(() => {
-        // Update speed based on freeze state
-        const currentSpeed = gameState.isTimeFrozen() ? 30 : 108;
+        // Update speed based on freeze state (BALANCE PATCH v3: 20% faster)
+        const currentSpeed = gameState.isTimeFrozen() ? 36 : 130;
         const dir = shard.vel.unit();
         shard.vel = dir.scale(currentSpeed);
         
@@ -414,10 +422,150 @@ export function level5Scene(k: KaboomCtx): void {
 
   // ============= PHASE 4: VOID SCREAMS (Silence) =============
   // Homing purple orbs that spawn on player
+  // BALANCE PATCH v3: Added Boss Chant mechanic - must interrupt with Silence or massive damage!
+  
+  let bossChantActive = false;
+  let bossChantTimer = 0;
+  const BOSS_CHANT_DURATION = 12.0; // BALANCE PATCH v3: 12s (was 8s) - more time to react
+  let chantProgressBar: GameObj<any> | null = null;
+  let chantWarningText: GameObj<any> | null = null;
+  
+  function startBossChant(): void {
+    if (bossChantActive) return;
+    bossChantActive = true;
+    bossChantTimer = 0;
+    
+    // Visual warning
+    chantWarningText = k.add([
+      k.text("BOSS IS CHANTING!", { size: 14 }),
+      k.pos(k.width() / 2, 140),
+      k.anchor("center"),
+      k.color(255, 100, 100),
+      k.opacity(1),
+      k.z(303),
+      k.fixed()
+    ]);
+    
+    // Chant progress bar
+    chantProgressBar = k.add([
+      k.rect(200, 12),
+      k.pos(k.width() / 2 - 100, 158),
+      k.color(80, 40, 120),
+      k.outline(2, k.rgb(150, 50, 200)),
+      k.z(303),
+      k.fixed()
+    ]);
+    
+    // Boss visual change during chant
+    boss.color = k.rgb(150, 50, 200);
+  }
+  
+  function updateBossChant(): void {
+    if (!bossChantActive) return;
+    
+    bossChantTimer += k.dt();
+    
+    // Update progress bar
+    if (chantProgressBar && chantProgressBar.exists()) {
+      const progress = bossChantTimer / BOSS_CHANT_DURATION;
+      chantProgressBar.width = 200 * progress;
+      
+      // Flashing warning as chant completes
+      if (progress > 0.7) {
+        chantProgressBar.color = k.rgb(255, 50 + Math.sin(k.time() * 10) * 50, 50);
+      }
+    }
+    
+    // Flashing text
+    if (chantWarningText && chantWarningText.exists()) {
+      chantWarningText.opacity = 0.7 + Math.sin(k.time() * 6) * 0.3;
+    }
+    
+    // Check if Silence was used to interrupt
+    if (gameState.isPlayerInvisible()) {
+      // Chant interrupted!
+      cancelBossChant(true);
+      return;
+    }
+    
+    // Chant completes - massive damage + screen clear
+    if (bossChantTimer >= BOSS_CHANT_DURATION) {
+      completeBossChant();
+    }
+  }
+  
+  function cancelBossChant(silenced: boolean): void {
+    bossChantActive = false;
+    bossChantTimer = 0;
+    
+    if (chantProgressBar && chantProgressBar.exists()) chantProgressBar.destroy();
+    if (chantWarningText && chantWarningText.exists()) chantWarningText.destroy();
+    chantProgressBar = null;
+    chantWarningText = null;
+    
+    boss.color = k.rgb(80, 40, 120); // Return to void phase color
+    
+    if (silenced) {
+      // Success! Show feedback
+      const successText = k.add([
+        k.text("CHANT INTERRUPTED!", { size: 14 }),
+        k.pos(k.width() / 2, k.height() / 2 - 50),
+        k.anchor("center"),
+        k.color(100, 255, 100),
+        k.opacity(1),
+        k.z(500),
+        k.fixed()
+      ]);
+      k.tween(1, 0, 1, (v) => { successText.opacity = v; }).onEnd(() => successText.destroy());
+      camera.shake(5, 0.2);
+    }
+  }
+  
+  function completeBossChant(): void {
+    // Chant completed - punish player!
+    cancelBossChant(false);
+    
+    // Screen flash
+    const flashOverlay = k.add([
+      k.rect(k.width(), k.height()),
+      k.pos(0, 0),
+      k.color(150, 50, 200),
+      k.opacity(0.8),
+      k.z(999),
+      k.fixed()
+    ]);
+    k.tween(0.8, 0, 0.5, (v) => { flashOverlay.opacity = v; }).onEnd(() => flashOverlay.destroy());
+    
+    // Damage player (2 damage) and spawn burst of homing orbs
+    if (!gameState.isInvincible()) {
+      gameState.damagePlayer(2);
+      gameState.setInvincible(true);
+      k.wait(2, () => { gameState.setInvincible(false); });
+    }
+    camera.shake(20, 0.5);
+    
+    // Spawn burst of orbs around the arena
+    for (let i = 0; i < 8; i++) {
+      k.wait(i * 0.1, () => spawnHomingOrb());
+    }
+    
+    const failText = k.add([
+      k.text("VOID ERUPTION!", { size: 16 }),
+      k.pos(k.width() / 2, k.height() / 2 - 50),
+      k.anchor("center"),
+      k.color(255, 100, 100),
+      k.opacity(1),
+      k.z(500),
+      k.fixed()
+    ]);
+    k.tween(1, 0, 1.5, (v) => { failText.opacity = v; }).onEnd(() => failText.destroy());
+    
+    if (gameState.isPlayerDead()) k.go("gameover");
+  }
   
   function spawnHomingOrb(): void {
     // Spawn near player position
-    const offset = k.vec2(k.rand(-30, 30), k.rand(-30, 30));
+    const offset = k.vec2(k.rand(-80, 80), k.rand(-80, 80));
     const spawnPos = player.pos.add(offset);
     
     const orb = k.add([
@@ -440,11 +588,11 @@ export function level5Scene(k: KaboomCtx): void {
     orb.onUpdate(() => {
       orb.age += k.dt();
       
-      // Check if in silence zone - BUFFED: Screen-wide null zone (radius 200, was 50)
+      // Check if in silence zone - BALANCE PATCH v3: Global range (radius 400, was 200)
       if (gameState.isPlayerInvisible()) { // Silence mask makes player "invisible" to orbs
         // Orb gets deleted when entering player's null zone radius
         const distToPlayer = orb.pos.dist(player.pos);
-        if (distToPlayer < 200) { // BUFFED: Screen-wide null zone (was 50)
+        if (distToPlayer < 400) { // BALANCE PATCH v3: DOUBLED to 400 - can silence from ANYWHERE
           // Destroy with visual effect
           for (let i = 0; i < 5; i++) {
             const particle = k.add([
@@ -744,18 +892,20 @@ export function level5Scene(k: KaboomCtx): void {
     maskManager.updatePlayerMask();
     camera.follow(player, k.mousePos());
     
-    // ============= BOSS STUN FROM FREEZE =============
-    // When player uses Freeze mask during freeze phase, stun boss for 4 seconds
+    // ============= BOSS STUN FROM FREEZE (BALANCE PATCH v3: Diminishing Returns) =============
+    // 1st Freeze = 3.0s, 2nd = 1.5s, 3rd+ = 0.5s (prevents permastunning)
     if (gameState.isTimeFrozen() && bossPhase === "freeze" && !bossStunned) {
       bossStunned = true;
-      bossStunTimer = BOSS_FREEZE_STUN_DURATION;
+      const stunDuration = getFreezeDuration();
+      bossStunTimer = stunDuration;
+      freezeUseCount++;
       spiralActive = false; // Stop current attack
       boss.color = k.rgb(100, 200, 255); // Frozen blue tint
       k.destroyAll("ice-shard"); // Clear all ice shards
       
-      // Visual feedback
+      // Visual feedback with diminishing returns info
       const stunText = k.add([
-        k.text("BOSS STUNNED!", { size: 12 }),
+        k.text(`BOSS STUNNED! (${stunDuration.toFixed(1)}s)`, { size: 12 }),
         k.pos(boss.pos.x, boss.pos.y - 40),
         k.anchor("center"),
         k.color(100, 200, 255),
@@ -763,6 +913,19 @@ export function level5Scene(k: KaboomCtx): void {
         k.z(100)
       ]);
       k.tween(1, 0, 1, (v) => { stunText.opacity = v; }).onEnd(() => stunText.destroy());
+      
+      // Show diminishing returns warning after 2nd use
+      if (freezeUseCount >= 2) {
+        const warnText = k.add([
+          k.text(freezeUseCount === 2 ? "Freeze Resistance Building!" : "Boss Resisting Freeze!", { size: 10 }),
+          k.pos(boss.pos.x, boss.pos.y - 55),
+          k.anchor("center"),
+          k.color(255, 200, 100),
+          k.opacity(1),
+          k.z(100)
+        ]);
+        k.tween(1, 0, 1.5, (v) => { warnText.opacity = v; }).onEnd(() => warnText.destroy());
+      }
     }
     
     // Update boss stun timer
@@ -843,8 +1006,17 @@ export function level5Scene(k: KaboomCtx): void {
         break;
         
       case "silence":
-        // Homing orbs every 0.8s
-        if (phaseAttackTimer >= 0.8) {
+        // BALANCE PATCH v3: Boss Chant mechanic - starts chanting every 15 seconds
+        // Player must use Silence to interrupt, or take massive damage
+        updateBossChant();
+        
+        // Start chant every 15 seconds if not already chanting
+        if (!bossChantActive && phaseAttackTimer >= 5) {
+          startBossChant();
+        }
+        
+        // Homing orbs every 0.8s (while not chanting)
+        if (!bossChantActive && phaseAttackTimer >= 0.8) {
           phaseAttackTimer = 0;
           spawnHomingOrb();
         }
