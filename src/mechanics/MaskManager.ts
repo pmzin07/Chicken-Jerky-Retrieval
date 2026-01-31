@@ -20,9 +20,18 @@ const MASK_SPRITES: Record<string, string> = {
   shield: "mask-shield"
 };
 
-// Scale factor for 400px SVG assets
-export const MASK_SCALE_PLAYER = 0.08;  // 400px -> ~32px for player face
-export const MASK_SCALE_UI = 0.1;       // 400px -> ~40px for UI icons
+// Scale factors for 400px SVG assets
+const MASK_SVG_SIZE = 400; // Source SVG size
+
+// Target pixel sizes
+export const UI_ICON_SIZE = 64;        // UI icons at bottom of screen
+export const FACE_MASK_SIZE = 24;      // Mask on player's face
+export const CUTSCENE_MASK_SIZE = 80;  // Masks in cutscene
+
+// Calculated scales
+export const MASK_SCALE_UI = UI_ICON_SIZE / MASK_SVG_SIZE;         // 0.16
+export const MASK_SCALE_PLAYER = FACE_MASK_SIZE / MASK_SVG_SIZE;   // 0.06
+export const MASK_SCALE_CUTSCENE = CUTSCENE_MASK_SIZE / MASK_SVG_SIZE; // 0.2
 
 export class MaskManager {
   private k: KaboomCtx;
@@ -68,10 +77,10 @@ export class MaskManager {
     this.playerMaskSprite = player.add([
       this.k.sprite("mask-silence"), // Default, will be hidden
       this.k.anchor("center"),
-      this.k.pos(0, -4), // Slightly above center (face position)
+      this.k.pos(0, -2), // Slightly above center (face position)
       this.k.scale(MASK_SCALE_PLAYER),
       this.k.opacity(0), // Hidden until mask equipped
-      this.k.z(1),
+      this.k.z(11), // Above player sprite (player is z(10))
       "player-mask"
     ]);
   }

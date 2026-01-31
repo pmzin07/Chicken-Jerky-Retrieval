@@ -1,6 +1,10 @@
 // Gate Opening Cutscene - Anime-style Mask Assembly Sequence
 import { KaboomCtx, GameObj } from "kaboom";
 import { MASKS } from "../constants.ts";
+import { MASK_SCALE_CUTSCENE } from "../mechanics/MaskManager.ts";
+
+// Mask sprite names for the 4 masks
+const MASK_SPRITE_NAMES = ["mask-silence", "mask-ghost", "mask-frozen", "mask-shield"];
 
 export function gateOpeningScene(k: KaboomCtx): void {
   const screenW = k.width();
@@ -183,12 +187,11 @@ export function gateOpeningScene(k: KaboomCtx): void {
   for (let i = 0; i < 4; i++) {
     const mask = maskOrder[i];
     const maskSprite = k.add([
-      k.circle(25),
+      k.sprite(MASK_SPRITE_NAMES[i]),
       k.pos(screenW / 2, masksStartY),
       k.anchor("center"),
-      k.color(k.Color.fromHex(mask.color)),
+      k.scale(MASK_SCALE_CUTSCENE),
       k.opacity(0),
-      k.scale(0.5),
       k.z(20),
       k.fixed(),
       {
@@ -199,24 +202,25 @@ export function gateOpeningScene(k: KaboomCtx): void {
       }
     ]);
 
-    // Mask symbol/icon
-    const icons = ["🌑", "👻", "❄️", "🛡️"];
-    const iconSprite = k.add([
-      k.text(icons[i], { size: 18 }),
+    // Mask glow effect (colored circle behind sprite)
+    const glowSprite = k.add([
+      k.circle(35),
       k.pos(screenW / 2, masksStartY),
       k.anchor("center"),
+      k.color(k.Color.fromHex(mask.color)),
       k.opacity(0),
-      k.z(21),
+      k.z(19),
       k.fixed(),
       { parentMask: maskSprite }
     ]);
 
     floatingMasks.push(maskSprite);
-    maskIcons.push(iconSprite);
+    maskIcons.push(glowSprite);
     
-    // Icon follows mask
-    iconSprite.onUpdate(() => {
-      iconSprite.pos = maskSprite.pos;
+    // Glow follows mask
+    glowSprite.onUpdate(() => {
+      glowSprite.pos = maskSprite.pos;
+      glowSprite.opacity = maskSprite.opacity * 0.4;
     });
   }
 

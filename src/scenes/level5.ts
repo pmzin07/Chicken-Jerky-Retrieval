@@ -129,14 +129,15 @@ export function level5Scene(k: KaboomCtx): void {
 
   // Mask UI
   const maskUIContainer = k.add([
-    k.pos(k.width() / 2, k.height() - 50),
+    k.pos(k.width() / 2, k.height() - 45),
     k.anchor("center"),
     k.z(400),
     k.fixed()
   ]);
 
   const maskIcons: GameObj<any>[] = [];
-  const MASK_SPACING = 50;
+  const UI_ICON_SIZE = 64; // Target pixel size for UI icons
+  const MASK_SPACING = UI_ICON_SIZE + 10; // Spacing based on icon size
   const masks = [
     { id: "silence", key: "1", sprite: "mask-silence" },
     { id: "ghost", key: "2", sprite: "mask-ghost" },
@@ -148,7 +149,7 @@ export function level5Scene(k: KaboomCtx): void {
     const xPos = (i - 1.5) * MASK_SPACING;
     maskUIContainer.add([
       k.text(`[${mask.key}]`, { size: 10 }),
-      k.pos(xPos, -25),
+      k.pos(xPos, -40),
       k.anchor("center"),
       k.color(200, 200, 200),
       k.z(401)
