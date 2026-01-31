@@ -17,10 +17,10 @@ const BALL_KICK_FORCE = 350;
 const BALL_DRAG = 3;
 const INITIAL_DEFENDER_COUNT = 5;  // Starting defenders
 
-// Floor 4 Spawner Settings (Horde Mode)
-const SPAWN_INTERVAL = 0.8;         // Enemies spawn rapidly (was 3.0s)
-const MAX_SIMULTANEOUS_ENEMIES = 15; // Tripled enemy cap for horde feel (was 5)
-const SPAWN_CLUSTER_SIZE = 3;        // Spawn 3 enemies at once instead of 1
+// Floor 4 Spawner Settings (Nerfed - was too hard)
+const SPAWN_INTERVAL = 2.5;         // Slower spawns (was 0.8s horde mode)
+const MAX_SIMULTANEOUS_ENEMIES = 8; // Adjusted cap (was 6)
+const SPAWN_CLUSTER_SIZE = 1;       // Single spawns (was 3 cluster)
 
 export function level4Scene(k: KaboomCtx): void {
   const map = LEVEL_4_MAP;
