@@ -89,16 +89,18 @@ export function loadAssets(k: KaboomCtx): void {
     }
   });
   
-  // Run animation (moving) - 4 directional rows
-  // Direction mapping: Row 0=Left, Row 1=Up(Back), Row 2=Right, Row 3=Down(Front)
+  // Run animation (moving) - Horizontal strip (Row Major reading)
+  // Force horizontal animation: 4 frames in single row, cycle 0->1->2->3
+  // This prevents vertical reading issues (0->4->8->12)
   k.loadSprite("vu-run", vuRun, {
-    sliceX: 4,  // 4 frames horizontal per row
-    sliceY: 4,  // 4 directions
+    sliceX: 4,  // 4 frames horizontal (columns)
+    sliceY: 1,  // Single row - forces horizontal reading
     anims: {
-      "run-left":  { from: 0, to: 3, loop: true, speed: 12 },   // Row 0 - Side_Left
-      "run-up":    { from: 4, to: 7, loop: true, speed: 12 },   // Row 1 - Back
-      "run-right": { from: 8, to: 11, loop: true, speed: 12 },  // Row 2 - Side_Right
-      "run-down":  { from: 12, to: 15, loop: true, speed: 12 }  // Row 3 - Front
+      // All directions use same horizontal strip until 4-directional assets available
+      "run-left":  { from: 0, to: 3, loop: true, speed: 12 },
+      "run-up":    { from: 0, to: 3, loop: true, speed: 12 },
+      "run-right": { from: 0, to: 3, loop: true, speed: 12 },
+      "run-down":  { from: 0, to: 3, loop: true, speed: 12 }
     }
   });
   
