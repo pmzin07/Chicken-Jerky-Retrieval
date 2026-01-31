@@ -53,8 +53,8 @@ export const MASKS: Record<string, MaskData> = {
     name: "Ghost Mask",
     nameVi: "Mặt nạ Hồn Ma",
     color: "#9C27B0",
-    cooldown: 5,
-    duration: 0.5,
+    cooldown: 1.5,
+    duration: 0.75,
     description: "Phase Shift - Dash forward, intangible through barriers and enemies",
     passive: "Silent footsteps, enemies detect you slower",
     unlockFloor: 3

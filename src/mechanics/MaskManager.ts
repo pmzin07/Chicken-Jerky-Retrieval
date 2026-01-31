@@ -30,6 +30,9 @@ export class MaskManager {
   private cooldowns: Map<string, number> = new Map();
   private activeEffects: Map<string, boolean> = new Map();
   
+  // Boss fight cooldown overrides (for level 5)
+  private cooldownOverrides: Map<string, number> = new Map();
+  
   // Screen overlay for color grading
   private screenOverlay: GameObj<any> | null = null;
   
@@ -130,6 +133,22 @@ export class MaskManager {
       }
     });
   }
+  
+  // Set cooldown override for boss fight (level 5)
+  setCooldownOverride(maskId: string, cooldown: number): void {
+    this.cooldownOverrides.set(maskId, cooldown);
+  }
+  
+  // Clear all cooldown overrides (when leaving boss level)
+  clearCooldownOverrides(): void {
+    this.cooldownOverrides.clear();
+  }
+  
+  // Get effective cooldown for a mask (override or default)
+  private getEffectiveCooldown(mask: MaskData): number {
+    const override = this.cooldownOverrides.get(mask.id);
+    return override !== undefined ? override : mask.cooldown;
+  }
 
   // Activate mask ability
   activateAbility(player: GameObj<any>): void {
@@ -137,8 +156,8 @@ export class MaskManager {
     if (!mask) return;
     if (!this.canUseAbility(mask.id)) return;
 
-    // Set cooldown
-    this.cooldowns.set(mask.id, mask.cooldown);
+    // Set cooldown (use override if available)
+    this.cooldowns.set(mask.id, this.getEffectiveCooldown(mask));
     this.activeEffects.set(mask.id, true);
 
     // Apply effect based on mask type
@@ -398,6 +417,14 @@ export class MaskManager {
   // Set mask by index (alias for switchToMaskByIndex)
   setMask(index: number): void {
     this.switchToMaskByIndex(index);
+  }
+  
+  // Set mask by ID (for fixed key bindings like 1=shield, 2=ghost, etc.)
+  setMaskById(maskId: string): void {
+    const mask = MASKS[maskId];
+    if (mask && gameState.hasMask(maskId)) {
+      gameState.setCurrentMask(mask);
+    }
   }
 
   // Cycle to next mask

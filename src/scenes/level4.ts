@@ -15,7 +15,12 @@ import { TILE_SIZE } from "../loader.ts";
 const DEFENDER_NAMES = ["A Bủ", "Mắc Hài", "Vuốt Phó", "A Lực", "Anh Long", "A Hoàng", "A Núi"];
 const BALL_KICK_FORCE = 350;
 const BALL_DRAG = 3;
-const DEFENDER_COUNT = 7;
+const INITIAL_DEFENDER_COUNT = 5;  // Starting defenders
+
+// Floor 4 Spawner Settings (Horde Mode)
+const SPAWN_INTERVAL = 0.8;         // Enemies spawn rapidly (was 3.0s)
+const MAX_SIMULTANEOUS_ENEMIES = 15; // Tripled enemy cap for horde feel (was 5)
+const SPAWN_CLUSTER_SIZE = 3;        // Spawn 3 enemies at once instead of 1
 
 export function level4Scene(k: KaboomCtx): void {
   const map = LEVEL_4_MAP;
@@ -236,15 +241,20 @@ export function level4Scene(k: KaboomCtx): void {
   // Defenders don't activate until tutorial UI is dismissed
   let challengeStarted = false;
   
-  // ============= COMEDY DEFENSE AI (Defenders) =============
+  // ============= COMEDY DEFENSE AI (Defenders) - SPAWNER SYSTEM =============
   const defenders: GameObj<any>[] = [];
+  let spawnTimer = 0;
   
   type DefenderState = "confused" | "chase";
   
-  for (let i = 0; i < DEFENDER_COUNT; i++) {
+  // Function to spawn a defender
+  function spawnDefender(): void {
+    if (defenders.length >= MAX_SIMULTANEOUS_ENEMIES) return;
+    
     // Spread defenders across the field
     const defX = TILE_SIZE * 3 + k.rand(0, map.width - TILE_SIZE * 6);
     const defY = TILE_SIZE * 5 + k.rand(0, map.height - TILE_SIZE * 10);
+    const defenderIndex = defenders.length;
     
     const defender = k.add([
       k.rect(12, 16, { radius: 2 }),
@@ -257,7 +267,7 @@ export function level4Scene(k: KaboomCtx): void {
       "defender",
       "enemy",
       {
-        name: DEFENDER_NAMES[i % DEFENDER_NAMES.length],
+        name: DEFENDER_NAMES[defenderIndex % DEFENDER_NAMES.length],
         jerseyNum: Math.floor(k.rand(1, 99)),
         state: "confused" as DefenderState,
         speed: k.rand(70, 110),
@@ -306,6 +316,11 @@ export function level4Scene(k: KaboomCtx): void {
     });
 
     defenders.push(defender);
+  }
+  
+  // Spawn initial defenders
+  for (let i = 0; i < INITIAL_DEFENDER_COUNT; i++) {
+    spawnDefender();
   }
 
   // Defender AI Update
@@ -383,7 +398,7 @@ export function level4Scene(k: KaboomCtx): void {
       // Check if player died
       if (player.hp() <= 0) {
         gameState.setPaused(true);
-        k.wait(1, () => k.go("game_over"));
+        k.wait(1, () => k.go("gameover"));
         return;
       }
     }
@@ -554,6 +569,26 @@ export function level4Scene(k: KaboomCtx): void {
 
     // Camera follows player (with slight pull toward ball)
     camera.follow(player, k.mousePos());
+    
+    // ============= SPAWNER SYSTEM (Horde Mode) =============
+    if (challengeStarted) {
+      // Remove destroyed defenders from array
+      for (let i = defenders.length - 1; i >= 0; i--) {
+        if (!defenders[i].exists()) {
+          defenders.splice(i, 1);
+        }
+      }
+      
+      // Spawn new defenders rapidly
+      spawnTimer += dt;
+      if (spawnTimer >= SPAWN_INTERVAL && defenders.length < MAX_SIMULTANEOUS_ENEMIES) {
+        spawnTimer = 0;
+        // Spawn cluster of enemies at once
+        for (let c = 0; c < SPAWN_CLUSTER_SIZE; c++) {
+          spawnDefender();
+        }
+      }
+    }
 
     // Update defenders
     defenders.forEach(def => {

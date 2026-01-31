@@ -47,6 +47,21 @@ export function level5Scene(k: KaboomCtx): void {
   const maskManager = new MaskManager(k);
   gameState.prepareForLevel(5);
   buildLevel(k, map);
+  
+  // ============= GRANT ALL MASKS FOR BOSS FIGHT =============
+  // Ensure all 4 masks are unlocked at the start of the boss fight
+  gameState.addCollectedMask(MASKS.shield);
+  gameState.addCollectedMask(MASKS.ghost);
+  gameState.addCollectedMask(MASKS.frozen);
+  gameState.addCollectedMask(MASKS.silence);
+  gameState.setCurrentMask(MASKS.shield); // Start with shield
+  
+  // ============= BOSS FIGHT COOLDOWN OVERRIDES =============
+  // Masks are almost spam-able to keep up with boss attack speed
+  maskManager.setCooldownOverride("shield", 1.5);   // was 6s, balanced for rhythmic blocking
+  maskManager.setCooldownOverride("ghost", 0.5);    // was 1.5s, spam-able for mobility
+  maskManager.setCooldownOverride("frozen", 1.0);   // was 10s
+  maskManager.setCooldownOverride("silence", 1.0);  // was 12s
 
   const playerSpawn = getPlayerSpawn(map);
   const bossSpawnPos = { x: map.width / 2, y: TILE_SIZE * 4 };
@@ -330,23 +345,29 @@ export function level5Scene(k: KaboomCtx): void {
     });
   }
 
-  // ============= PHASE 3: HYPOTHERMIA (Freeze) =============
-  // High-speed ice spiral patterns - too fast unless frozen
+  // ============= PHASE 3: HYPOTHERMIA (Freeze) - NERFED =============
+  // Ice spiral patterns - speed reduced 40%, wider gaps, longer freeze stun
   
   let spiralAngle = 0;
   let spiralActive = false;
+  let bossStunned = false;
+  let bossStunTimer = 0;
+  const BOSS_FREEZE_STUN_DURATION = 4.0; // Boss stunned for 4s when player uses freeze (was 1.5s)
   
   function startIceSpiral(): void {
+    if (bossStunned) return; // Can't attack while stunned
     spiralActive = true;
     spiralAngle = 0;
   }
   
   function updateIceSpiral(): void {
-    if (!spiralActive) return;
+    if (!spiralActive || bossStunned) return;
     
     // Spawn ice shards in spiral pattern from boss
-    const numArms = 4;
-    const baseSpeed = gameState.isTimeFrozen() ? 40 : 180; // Much slower when frozen
+    // NERFED: Reduced from 4 arms to 3 for wider gaps
+    const numArms = 3;
+    // NERFED: Reduced speed from 180 to 108 (40% reduction)
+    const baseSpeed = gameState.isTimeFrozen() ? 30 : 108;
     
     for (let arm = 0; arm < numArms; arm++) {
       const angle = spiralAngle + (arm * Math.PI * 2 / numArms);
@@ -368,7 +389,7 @@ export function level5Scene(k: KaboomCtx): void {
       
       shard.onUpdate(() => {
         // Update speed based on freeze state
-        const currentSpeed = gameState.isTimeFrozen() ? 40 : 180;
+        const currentSpeed = gameState.isTimeFrozen() ? 30 : 108;
         const dir = shard.vel.unit();
         shard.vel = dir.scale(currentSpeed);
         
@@ -387,7 +408,8 @@ export function level5Scene(k: KaboomCtx): void {
       });
     }
     
-    spiralAngle += 0.15;
+    // NERFED: Slower spiral rotation for wider gaps (was 0.15)
+    spiralAngle += 0.10;
   }
 
   // ============= PHASE 4: VOID SCREAMS (Silence) =============
@@ -418,11 +440,11 @@ export function level5Scene(k: KaboomCtx): void {
     orb.onUpdate(() => {
       orb.age += k.dt();
       
-      // Check if in silence zone
+      // Check if in silence zone - BUFFED: Screen-wide null zone (radius 200, was 50)
       if (gameState.isPlayerInvisible()) { // Silence mask makes player "invisible" to orbs
         // Orb gets deleted when entering player's null zone radius
         const distToPlayer = orb.pos.dist(player.pos);
-        if (distToPlayer < 50) { // Null zone radius
+        if (distToPlayer < 200) { // BUFFED: Screen-wide null zone (was 50)
           // Destroy with visual effect
           for (let i = 0; i < 5; i++) {
             const particle = k.add([
@@ -721,6 +743,36 @@ export function level5Scene(k: KaboomCtx): void {
     maskManager.update(dt);
     maskManager.updatePlayerMask();
     camera.follow(player, k.mousePos());
+    
+    // ============= BOSS STUN FROM FREEZE =============
+    // When player uses Freeze mask during freeze phase, stun boss for 4 seconds
+    if (gameState.isTimeFrozen() && bossPhase === "freeze" && !bossStunned) {
+      bossStunned = true;
+      bossStunTimer = BOSS_FREEZE_STUN_DURATION;
+      spiralActive = false; // Stop current attack
+      boss.color = k.rgb(100, 200, 255); // Frozen blue tint
+      k.destroyAll("ice-shard"); // Clear all ice shards
+      
+      // Visual feedback
+      const stunText = k.add([
+        k.text("BOSS STUNNED!", { size: 12 }),
+        k.pos(boss.pos.x, boss.pos.y - 40),
+        k.anchor("center"),
+        k.color(100, 200, 255),
+        k.opacity(1),
+        k.z(100)
+      ]);
+      k.tween(1, 0, 1, (v) => { stunText.opacity = v; }).onEnd(() => stunText.destroy());
+    }
+    
+    // Update boss stun timer
+    if (bossStunned) {
+      bossStunTimer -= dt;
+      if (bossStunTimer <= 0) {
+        bossStunned = false;
+        boss.color = k.rgb(200, 50, 100); // Normal color
+      }
+    }
     
     // Update boss aura position and pulsing
     bossAura.pos = boss.pos;
@@ -1119,11 +1171,12 @@ function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManag
     maskManager.activateAbility(player);
   });
 
-  // Mask quick-swap keys
-  k.onKeyPress("1", () => maskManager.setMask(0));
-  k.onKeyPress("2", () => maskManager.setMask(1));
-  k.onKeyPress("3", () => maskManager.setMask(2));
-  k.onKeyPress("4", () => maskManager.setMask(3));
+  // Mask quick-swap keys - use fixed mask IDs (not array index)
+  // 1=Shield, 2=Ghost, 3=Freeze, 4=Silence
+  k.onKeyPress("1", () => maskManager.setMaskById("shield"));
+  k.onKeyPress("2", () => maskManager.setMaskById("ghost"));
+  k.onKeyPress("3", () => maskManager.setMaskById("frozen"));
+  k.onKeyPress("4", () => maskManager.setMaskById("silence"));
   k.onKeyPress("tab", () => maskManager.cycleMask());
 
   return player;
