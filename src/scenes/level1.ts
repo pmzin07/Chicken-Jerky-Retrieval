@@ -293,9 +293,6 @@ function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManag
     }
   ]);
 
-  // Play initial animation
-  try { player.play("idle"); } catch {}
-
   // Mask overlay (Paper Doll system)
   const maskOverlay = k.add([
     k.sprite("mask-shield"),
@@ -325,12 +322,12 @@ function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManag
       player.move(player.dir.scale(player.speed));
     }
 
-    // State transition - switch sprite and animation
+    // State transition - switch sprite
     if (newState !== currentState) {
       currentState = newState;
       try {
         player.use(k.sprite(newState === "run" ? "vu-run" : "vu-idle"));
-        player.play(newState);
+        if (newState === "run") player.play("run");
       } catch {}
     }
 

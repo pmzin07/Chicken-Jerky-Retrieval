@@ -9,7 +9,7 @@ import maskFreezeImg from './assets/ui/masks/mask_freeze.svg';
 import maskShieldImg from './assets/ui/masks/mask_shield.svg';
 
 // Import Vu character sprites
-import vuIdleAnim from './assets/sprites/characters/vu/Vu_idle_anim_16x16.png';
+import vuIdle from './assets/sprites/characters/vu/Vu_idle_16x16.png';
 import vuRun from './assets/sprites/characters/vu/Vu_run_16x16.png';
 
 // Tile size for all entities
@@ -75,16 +75,10 @@ export function loadAssets(k: KaboomCtx): void {
   k.loadSprite("intro_corp", createIntroSlide(640, 360, "#0f0f23", "#1a1a40", "BAGASSE CORP"));
 
   // ============= PLAYER - Vu Character Sprites =============
-  // Idle animation - simple looping sprite
-  k.loadSprite("vu-idle", vuIdleAnim, {
-    sliceX: 4,
-    sliceY: 1,
-    anims: {
-      "idle": { from: 0, to: 3, loop: true, speed: 6 }
-    }
-  });
+  // Idle - static sprite (Vu standing still)
+  k.loadSprite("vu-idle", vuIdle);
   
-  // Run animation - 24 frame horizontal strip (shows 1/24th at a time)
+  // Run animation - 24 frame horizontal strip (Vu moving)
   k.loadSprite("vu-run", vuRun, {
     sliceX: 24,
     sliceY: 1,

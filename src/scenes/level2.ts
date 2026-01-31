@@ -611,8 +611,6 @@ function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManag
     }
   ]);
 
-  try { player.play("idle"); } catch {}
-
   // Mask overlay
   const maskOverlay = k.add([
     k.sprite("mask-shield"),
@@ -645,7 +643,7 @@ function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManag
       currentState = newState;
       try {
         player.use(k.sprite(newState === "run" ? "vu-run" : "vu-idle"));
-        player.play(newState);
+        if (newState === "run") player.play("run");
       } catch {}
     }
 
