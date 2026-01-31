@@ -99,13 +99,13 @@ export const LEVEL_DIALOGUES: Record<number, { intro: DialogueLine[], outro?: Di
   },
   2: {
     intro: [
-      { speaker: "Vu", text: "This place looks dangerous...", color: "#4FC3F7" },
+      { speaker: "Vu", text: "The Armory... Turrets everywhere!", color: "#4FC3F7" },
       { speaker: "???", text: "You'll need protection. Take this Shield Mask.", color: "#FF5722" },
-      { speaker: "System", text: "Shield Mask acquired! Press SPACE to activate Reflective Guard.", color: "#FFCA28" }
+      { speaker: "System", text: "Shield Mask acquired! Hold SPACE to block. Survive 30 seconds!", color: "#FFCA28" }
     ],
     outro: [
-      { speaker: "Vu", text: "The Shield saved me! Onwards to Floor 3.", color: "#4FC3F7" },
-      { speaker: "System", text: "Shield Mask mastered!", color: "#FFCA28" }
+      { speaker: "Vu", text: "I mastered the Shield! Block, Reflect, Absorb...", color: "#4FC3F7" },
+      { speaker: "System", text: "Shield Mask mastered! Onwards to Floor 3.", color: "#FFCA28" }
     ]
   },
   3: {
