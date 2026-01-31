@@ -171,7 +171,8 @@ export function introScene(k: KaboomCtx): void {
       k.anchor("center"),
       k.scale(imgScale),
       k.opacity(0),
-      k.z(1)
+      k.z(1),
+      k.fixed()
     ]);
 
     // Ken Burns Effect: Pan and Zoom
@@ -182,8 +183,9 @@ export function introScene(k: KaboomCtx): void {
     ];
     const dir = directions[index % directions.length];
 
+    const coverScale = Math.max(screenW / currentSlide.width, screenH / currentSlide.height);
     currentSlide.pos = k.vec2(screenW / 2 + dir.startX, screenH / 2 + dir.startY);
-    currentSlide.scale = k.vec2(dir.startScale, dir.startScale);
+    currentSlide.scale = k.vec2(coverScale * dir.startScale, coverScale * dir.startScale);
 
     // Fade in
     k.tween(0, 1, 0.8, (val) => {
@@ -195,7 +197,7 @@ export function introScene(k: KaboomCtx): void {
       if (currentSlide) {
         const x = screenW / 2 + dir.startX + (dir.endX - dir.startX) * val;
         const y = screenH / 2 + dir.startY + (dir.endY - dir.startY) * val;
-        const s = dir.startScale + (dir.endScale - dir.startScale) * val;
+        const s = coverScale * (dir.startScale + (dir.endScale - dir.startScale) * val);
         currentSlide.pos = k.vec2(x, y);
         currentSlide.scale = k.vec2(s, s);
       }

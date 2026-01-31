@@ -599,8 +599,8 @@ function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManag
   const player = k.add([
     k.sprite("vu-idle"),
     k.pos(x, y),
-    k.anchor("center"),
-    k.area({ scale: k.vec2(0.8, 0.8) }),
+    k.anchor("bot"),
+    k.area({ shape: new k.Rect(k.vec2(-4, -6), 8, 6) }),
     k.body(),
     k.health(3),
     k.opacity(1),
@@ -614,16 +614,25 @@ function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManag
 
   try { player.play("idle-front"); } catch {}
 
-  // Mask overlay
-  const maskOverlay = k.add([
+  // Floating mask status icon above head
+  const maskStatusIcon = k.add([
     k.sprite("mask-shield"),
-    k.pos(x, y - 5),
+    k.pos(x, y - 20),
     k.anchor("center"),
-    k.scale(0.35),
+    k.scale(0.02, 0.02),
+    k.rotate(0),
     k.opacity(0),
-    k.z(11),
-    "mask-overlay"
+    k.z(10),
+    "mask-status-icon"
   ]);
+
+  // Mask sprite mapping
+  const maskSprites: Record<string, string> = {
+    shield: "mask-shield",
+    ghost: "mask-ghost",
+    frozen: "mask-frozen",
+    silence: "mask-silence"
+  };
 
   function getDirection(d: { x: number; y: number }): "right" | "front" | "left" | "back" {
     if (Math.abs(d.x) > Math.abs(d.y)) return d.x > 0 ? "right" : "left";
@@ -657,16 +666,21 @@ function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManag
       } catch {}
     }
 
-    // Mask overlay update
-    maskOverlay.pos.x = player.pos.x;
-    maskOverlay.pos.y = player.pos.y - 5 + (currentState === "run" ? Math.sin(k.time() * 15) * 0.5 : 0);
+    // Floating mask status icon update (above head with bobbing, rotation locked)
+    const bobOffset = Math.sin(k.time() * 4) * 1;
+    maskStatusIcon.pos.x = player.pos.x;
+    maskStatusIcon.pos.y = player.pos.y - 20 + bobOffset;
+    maskStatusIcon.scale = k.vec2(0.02, 0.02); // Force exact scale every frame
+    maskStatusIcon.angle = 0; // Lock rotation
+    
     const currentMask = gameState.getPlayerState().currentMask;
     if (currentMask) {
-      maskOverlay.opacity = 0.9;
-      const maskSprites: Record<string, string> = { shield: "mask-shield", ghost: "mask-ghost", frozen: "mask-frozen", silence: "mask-silence" };
-      try { maskOverlay.use(k.sprite(maskSprites[currentMask.id] || "mask-shield")); maskOverlay.scale = k.vec2(0.35, 0.35); } catch {}
+      maskStatusIcon.opacity = 0.9;
+      try {
+        maskStatusIcon.use(k.sprite(maskSprites[currentMask.id] || "mask-shield"));
+      } catch {}
     } else {
-      maskOverlay.opacity = 0;
+      maskStatusIcon.opacity = 0;
     }
 
     const margin = TILE_SIZE;

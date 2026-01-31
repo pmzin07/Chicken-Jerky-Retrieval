@@ -8,17 +8,7 @@ import { TILE_SIZE } from "../loader";
 export type PlayerState = "idle" | "run";
 export type PlayerDirection = "down" | "up" | "right" | "left";
 
-// Mask sprite mapping
-const MASK_SPRITES: Record<string, string> = {
-  "shield": "mask-shield",
-  "ghost": "mask-ghost",
-  "frozen": "mask-frozen",
-  "silence": "mask-silence"
-};
-
-// Mask overlay offset (position on Vu's face)
-const MASK_OFFSET = { x: 0, y: -5 };
-const MASK_OVERLAY_SCALE = 0.35; // Scale mask to fit on face
+// Mask overlay disabled - masks only shown in UI
 
 export interface PlayerConfig {
   speed?: number;
@@ -60,7 +50,7 @@ export function createPlayerWithMask(
     k.sprite("vu-idle"),
     k.pos(x, y),
     k.anchor("center"),
-    k.area({ scale: k.vec2(0.8, 0.8) }),
+    k.area({ shape: new k.Rect(k.vec2(-4, -6), 8, 6) }),
     k.body(),
     k.opacity(1),
     k.z(10),
@@ -80,14 +70,14 @@ export function createPlayerWithMask(
     // Fallback if animation doesn't exist
   }
 
-  // Create mask overlay as child sprite (Paper Doll system)
+  // Create mask overlay (disabled - masks only shown in UI)
   const maskOverlay = k.add([
-    k.sprite("mask-shield"), // Default, will be hidden if no mask
-    k.pos(x + MASK_OFFSET.x, y + MASK_OFFSET.y),
+    k.sprite("mask-shield"),
+    k.pos(x, y - 5),
     k.anchor("center"),
-    k.scale(MASK_OVERLAY_SCALE),
-    k.opacity(0), // Hidden by default
-    k.z(11), // Render on top of player
+    k.scale(0.35),
+    k.opacity(0), // Always hidden
+    k.z(11),
     "mask-overlay"
   ]);
 
@@ -134,40 +124,9 @@ export function createPlayerWithMask(
   /**
    * Update mask overlay position and visibility
    */
-  let lastMaskSprite = "";
-  
   function updateMaskOverlay(): void {
-    // Follow player position
-    maskOverlay.pos.x = player.pos.x + MASK_OFFSET.x;
-    maskOverlay.pos.y = player.pos.y + MASK_OFFSET.y;
-    
-    // Check current equipped mask
-    const currentMask = gameState.getPlayerState().currentMask;
-    
-    if (currentMask && MASK_SPRITES[currentMask.id]) {
-      // Show mask overlay
-      maskOverlay.opacity = 0.9;
-      
-      // Update sprite if mask changed
-      const maskSprite = MASK_SPRITES[currentMask.id];
-      try {
-        if (lastMaskSprite !== maskSprite) {
-          lastMaskSprite = maskSprite;
-          maskOverlay.use(k.sprite(maskSprite));
-          maskOverlay.scale = k.vec2(MASK_OVERLAY_SCALE, MASK_OVERLAY_SCALE);
-        }
-      } catch {
-        // Sprite not found
-      }
-      
-      // Slight bob when running
-      if (currentState === "run") {
-        maskOverlay.pos.y += Math.sin(k.time() * 15) * 0.5;
-      }
-    } else {
-      // No mask equipped - hide overlay
-      maskOverlay.opacity = 0;
-    }
+    // Mask overlay disabled - masks only shown in UI, not on player sprite
+    maskOverlay.opacity = 0;
   }
 
   /**

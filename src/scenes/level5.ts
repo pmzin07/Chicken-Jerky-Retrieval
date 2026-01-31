@@ -88,10 +88,20 @@ export function level5Scene(k: KaboomCtx): void {
   // ============= UI SETUP =============
   const ui = createGameUI(k);
   
-  // Survival Timer Display (large, prominent)
+  // Boss name (Top_Center, y=20)
+  k.add([
+    k.text("THE FACE STEALER", { size: 12 }),
+    k.pos(k.width() / 2, 20),
+    k.anchor("center"),
+    k.color(255, 100, 100),
+    k.z(302),
+    k.fixed()
+  ]);
+
+  // Survival Timer Display (y=60, pushed below boss name)
   const timerBg = k.add([
     k.rect(140, 50),
-    k.pos(k.width() / 2, 40),
+    k.pos(k.width() / 2, 60),
     k.anchor("center"),
     k.color(20, 20, 20),
     k.outline(3, k.rgb(255, 100, 100)),
@@ -101,39 +111,29 @@ export function level5Scene(k: KaboomCtx): void {
 
   const timerText = k.add([
     k.text("90.0", { size: 24 }),
-    k.pos(k.width() / 2, 40),
+    k.pos(k.width() / 2, 60),
     k.anchor("center"),
     k.color(255, 255, 255),
     k.z(301),
     k.fixed()
   ]);
 
-  // Phase name display
+  // Phase name display (y=100, pushed below timer)
   const phaseText = k.add([
     k.text("PREPARE YOURSELF", { size: 11 }),
-    k.pos(k.width() / 2, 75),
+    k.pos(k.width() / 2, 100),
     k.anchor("center"),
     k.color(255, 200, 100),
     k.z(302),
     k.fixed()
   ]);
 
-  // Mask hint display
+  // Mask hint display (y=118, below phase text)
   const maskHintText = k.add([
     k.text("", { size: 9 }),
-    k.pos(k.width() / 2, 92),
+    k.pos(k.width() / 2, 118),
     k.anchor("center"),
     k.color(200, 200, 255),
-    k.z(302),
-    k.fixed()
-  ]);
-
-  // Boss name
-  k.add([
-    k.text("THE FACE STEALER", { size: 10 }),
-    k.pos(k.width() / 2, 15),
-    k.anchor("center"),
-    k.color(255, 100, 100),
     k.z(302),
     k.fixed()
   ]);
@@ -624,11 +624,39 @@ export function level5Scene(k: KaboomCtx): void {
     });
   }
   
-  // Show ACQUIRED notification
+  // Show ACQUIRED notification with icon (scaled down to prevent overlap)
   function showAcquiredNotification(kaboom: KaboomCtx, maskName: string): void {
+    // Container Y positions (properly spaced vertical layout)
+    const iconY = kaboom.height() * 0.28;
+    const headerY = iconY + 80; // 10px padding below 128px max icon
+    const textY = headerY + 35; // 5px spacing below header
+    
+    // Mask icon (max 128x128, centered at top)
+    const maskIcon = kaboom.add([
+      kaboom.sprite("mask-silence"),
+      kaboom.pos(kaboom.width() / 2, iconY),
+      kaboom.anchor("center"),
+      kaboom.scale(2), // Scale to ~128px (base 64px sprite)
+      kaboom.opacity(0),
+      kaboom.z(2000),
+      kaboom.fixed()
+    ]);
+    
+    // Header text (24pt, white)
+    const header = kaboom.add([
+      kaboom.text("MASK ACQUIRED", { size: 24 }),
+      kaboom.pos(kaboom.width() / 2, headerY),
+      kaboom.anchor("center"),
+      kaboom.color(255, 255, 255),
+      kaboom.opacity(0),
+      kaboom.z(2000),
+      kaboom.fixed()
+    ]);
+    
+    // Mask name (gold, below header)
     const notification = kaboom.add([
-      kaboom.text(`✨ ACQUIRED: ${maskName} ✨`, { size: 16 }),
-      kaboom.pos(kaboom.width() / 2, kaboom.height() * 0.35),
+      kaboom.text(`✨ ${maskName} ✨`, { size: 16 }),
+      kaboom.pos(kaboom.width() / 2, textY),
       kaboom.anchor("center"),
       kaboom.color(255, 215, 0),
       kaboom.opacity(0),
@@ -636,10 +664,25 @@ export function level5Scene(k: KaboomCtx): void {
       kaboom.fixed()
     ]);
     
-    kaboom.tween(0, 1, 0.4, (val) => { notification.opacity = val; }, kaboom.easings.easeOutQuad);
+    // Fade in all elements
+    kaboom.tween(0, 1, 0.4, (val) => {
+      maskIcon.opacity = val;
+      header.opacity = val;
+      notification.opacity = val;
+    }, kaboom.easings.easeOutQuad);
+    
+    // Fade out and destroy
     kaboom.wait(2.5, () => {
-      kaboom.tween(1, 0, 0.6, (val) => { notification.opacity = val; }, kaboom.easings.easeInQuad)
-        .onEnd(() => notification.destroy());
+      kaboom.tween(1, 0, 0.6, (val) => {
+        maskIcon.opacity = val;
+        header.opacity = val;
+        notification.opacity = val;
+      }, kaboom.easings.easeInQuad)
+        .onEnd(() => {
+          maskIcon.destroy();
+          header.destroy();
+          notification.destroy();
+        });
     });
   }
 
@@ -971,8 +1014,8 @@ function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManag
   const player = k.add([
     k.sprite("vu-idle"),
     k.pos(x, y),
-    k.anchor("center"),
-    k.area({ scale: k.vec2(0.8, 0.8) }),
+    k.anchor("bot"),
+    k.area({ shape: new k.Rect(k.vec2(-4, -6), 8, 6) }),
     k.body(),
     k.opacity(1),
     k.z(10),
@@ -985,16 +1028,25 @@ function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManag
 
   try { player.play("idle-front"); } catch {}
 
-  // Mask overlay
-  const maskOverlay = k.add([
+  // Floating mask status icon above head
+  const maskStatusIcon = k.add([
     k.sprite("mask-shield"),
-    k.pos(x, y - 5),
+    k.pos(x, y - 20),
     k.anchor("center"),
-    k.scale(0.35),
+    k.scale(0.02, 0.02),
+    k.rotate(0),
     k.opacity(0),
-    k.z(11),
-    "mask-overlay"
+    k.z(10),
+    "mask-status-icon"
   ]);
+
+  // Mask sprite mapping
+  const maskSprites: Record<string, string> = {
+    shield: "mask-shield",
+    ghost: "mask-ghost",
+    frozen: "mask-frozen",
+    silence: "mask-silence"
+  };
 
   function getDirection(d: { x: number; y: number }): "right" | "front" | "left" | "back" {
     if (Math.abs(d.x) > Math.abs(d.y)) return d.x > 0 ? "right" : "left";
@@ -1028,16 +1080,21 @@ function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManag
       } catch {}
     }
 
-    // Mask overlay update
-    maskOverlay.pos.x = player.pos.x;
-    maskOverlay.pos.y = player.pos.y - 5 + (currentState === "run" ? Math.sin(k.time() * 15) * 0.5 : 0);
+    // Floating mask status icon update (above head with bobbing, rotation locked)
+    const bobOffset = Math.sin(k.time() * 4) * 1;
+    maskStatusIcon.pos.x = player.pos.x;
+    maskStatusIcon.pos.y = player.pos.y - 20 + bobOffset;
+    maskStatusIcon.scale = k.vec2(0.02, 0.02); // Force exact scale every frame
+    maskStatusIcon.angle = 0; // Lock rotation
+    
     const currentMask = gameState.getPlayerState().currentMask;
     if (currentMask) {
-      maskOverlay.opacity = 0.9;
-      const maskSprites: Record<string, string> = { shield: "mask-shield", ghost: "mask-ghost", frozen: "mask-frozen", silence: "mask-silence" };
-      try { maskOverlay.use(k.sprite(maskSprites[currentMask.id] || "mask-shield")); maskOverlay.scale = k.vec2(0.35, 0.35); } catch {}
+      maskStatusIcon.opacity = 0.9;
+      try {
+        maskStatusIcon.use(k.sprite(maskSprites[currentMask.id] || "mask-shield"));
+      } catch {}
     } else {
-      maskOverlay.opacity = 0;
+      maskStatusIcon.opacity = 0;
     }
 
     const margin = TILE_SIZE * 1.5;

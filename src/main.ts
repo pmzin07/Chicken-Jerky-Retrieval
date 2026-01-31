@@ -123,11 +123,11 @@ k.onKeyPress("f3", () => k.go("level3"));
 k.onKeyPress("f4", () => k.go("level4"));
 k.onKeyPress("f5", () => k.go("level5"));
 
-// Start at main menu
-k.go("menu");
-
-// If we got here, the game booted.
-bootOverlay.remove();
+// Start at main menu after all assets are loaded
+k.onLoad(() => {
+  bootOverlay.remove();
+  k.go("menu");
+});
 
 // Log game info
 console.log("🍗 Chicken Jerky Retrieval - The Masked Mission 🎭");

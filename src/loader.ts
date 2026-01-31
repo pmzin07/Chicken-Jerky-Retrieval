@@ -8,6 +8,11 @@ import maskGhostImg from './assets/ui/masks/mask_ghost.svg';
 import maskFreezeImg from './assets/ui/masks/mask_freeze.svg';
 import maskShieldImg from './assets/ui/masks/mask_shield.svg';
 
+// Import cutscene slides (using compressed JPG versions)
+import slideCityImg from './assets/cutscene/intro/slide_city.jpg';
+import slideCompanyImg from './assets/cutscene/intro/slide_company.jpg';
+import slideMomSickImg from './assets/cutscene/intro/slide_mom_sick.jpg';
+
 // Import Vu character sprites
 import vuIdle from './assets/sprites/characters/vu/Vu_idle_16x16.png';
 import vuRun from './assets/sprites/characters/vu/Vu_run_16x16.png';
@@ -33,46 +38,13 @@ function createPlaceholderSprite(width: number, height: number, color: string, a
   return canvas.toDataURL();
 }
 
-// Helper to create intro slide placeholder with gradient
-function createIntroSlide(width: number, height: number, baseColor: string, topColor: string, label: string): string {
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d')!;
-  
-  // Gradient background
-  const gradient = ctx.createLinearGradient(0, 0, 0, height);
-  gradient.addColorStop(0, topColor);
-  gradient.addColorStop(1, baseColor);
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, width, height);
-  
-  // Add some visual interest
-  ctx.fillStyle = 'rgba(255,255,255,0.1)';
-  for (let i = 0; i < 20; i++) {
-    const x = Math.random() * width;
-    const y = Math.random() * height;
-    const size = Math.random() * 50 + 10;
-    ctx.beginPath();
-    ctx.arc(x, y, size, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  
-  // Label text
-  ctx.fillStyle = 'rgba(255,255,255,0.3)';
-  ctx.font = 'bold 24px monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText(label, width / 2, height / 2);
-  
-  return canvas.toDataURL();
-}
-
 // Load all game assets
 export function loadAssets(k: KaboomCtx): void {
-  // ============= INTRO SLIDES =============
-  k.loadSprite("intro_city", createIntroSlide(640, 360, "#1a1a2e", "#16213e", "CITY - 20XX"));
-  k.loadSprite("intro_room", createIntroSlide(640, 360, "#2d132c", "#801336", "VŨ'S HIDEOUT"));
-  k.loadSprite("intro_corp", createIntroSlide(640, 360, "#0f0f23", "#1a1a40", "BAGASSE CORP"));
+  // ============= INTRO CUTSCENE SLIDES =============
+  // Load actual cutscene images as intro slides
+  k.loadSprite("intro_room", slideCityImg);      // Slide 1: City overview
+  k.loadSprite("intro_corp", slideCompanyImg);   // Slide 2: Company building  
+  k.loadSprite("intro_city", slideMomSickImg);   // Slide 3: Mom sick
 
   // ============= PLAYER - Vu Character Sprites =============
   // Idle - 4 directional frames (Right, Back, Left, Front)

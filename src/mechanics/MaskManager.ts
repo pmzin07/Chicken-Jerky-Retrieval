@@ -12,14 +12,6 @@ const MASK_TINTS: Record<string, { r: number; g: number; b: number }> = {
   silence: { r: 33, g: 33, b: 33 }      // Dark Grey - Null Zone
 };
 
-// Mask sprite names
-const MASK_SPRITES: Record<string, string> = {
-  silence: "mask-silence",
-  ghost: "mask-ghost",
-  frozen: "mask-frozen",
-  shield: "mask-shield"
-};
-
 // Scale factors for 400px SVG assets
 const MASK_SVG_SIZE = 400; // Source SVG size
 
@@ -41,9 +33,8 @@ export class MaskManager {
   // Screen overlay for color grading
   private screenOverlay: GameObj<any> | null = null;
   
-  // Reference to player's mask sprite child
+  // Reference to player's mask sprite child (disabled)
   private playerMaskSprite: GameObj<any> | null = null;
-  private currentMaskId: string | null = null;
 
   constructor(k: KaboomCtx) {
     this.k = k;
@@ -72,52 +63,18 @@ export class MaskManager {
   }
   
   // Initialize player mask sprite (call after player creation)
-  initPlayerMask(player: GameObj<any>): void {
-    // Create invisible mask sprite on player's face
-    this.playerMaskSprite = player.add([
-      this.k.sprite("mask-silence"), // Default, will be hidden
-      this.k.anchor("center"),
-      this.k.pos(0, -2), // Slightly above center (face position)
-      this.k.scale(MASK_SCALE_PLAYER, MASK_SCALE_PLAYER),
-      this.k.opacity(0), // Hidden until mask equipped
-      this.k.z(11), // Above player sprite (player is z(10))
-      "player-mask"
-    ]);
-    
-    // Force scale on every frame (SVG sprites can reset scale)
-    this.playerMaskSprite.onUpdate(() => {
-      if (this.playerMaskSprite) {
-        this.playerMaskSprite.scale.x = MASK_SCALE_PLAYER;
-        this.playerMaskSprite.scale.y = MASK_SCALE_PLAYER;
-      }
-    });
+  initPlayerMask(_player: GameObj<any>): void {
+    // Player face mask disabled - only use floating status indicator
+    this.playerMaskSprite = null;
   }
   
   // Update the visible mask on player
   updatePlayerMask(): void {
-    const mask = gameState.getPlayerState().currentMask;
-    
-    if (!mask) {
-      // No mask equipped - hide sprite
-      if (this.playerMaskSprite) {
-        this.playerMaskSprite.opacity = 0;
-      }
-      this.currentMaskId = null;
-      return;
+    // Player face mask disabled - early return
+    if (this.playerMaskSprite) {
+      this.playerMaskSprite.opacity = 0;
     }
-    
-    // Update mask sprite if changed
-    if (this.currentMaskId !== mask.id && this.playerMaskSprite) {
-      const spriteName = MASK_SPRITES[mask.id];
-      if (spriteName) {
-        this.playerMaskSprite.use(this.k.sprite(spriteName));
-        // Force scale immediately
-        this.playerMaskSprite.scale.x = MASK_SCALE_PLAYER;
-        this.playerMaskSprite.scale.y = MASK_SCALE_PLAYER;
-        this.playerMaskSprite.opacity = 0.9;
-        this.currentMaskId = mask.id;
-      }
-    }
+    // Face mask overlay is disabled; floating indicator handled in scene files
   }
   
   // Activate screen tint for mask ability
