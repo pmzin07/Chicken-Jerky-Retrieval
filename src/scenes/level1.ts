@@ -277,6 +277,7 @@ function buildLevel(k: KaboomCtx, map: typeof LEVEL_1_MAP): void {
 function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManager): GameObj<any> {
   // Player state
   let currentState: "idle" | "run" = "idle";
+  let currentDir: "right" | "front" | "left" | "back" = "front";
 
   const player = k.add([
     k.sprite("vu-idle"),
@@ -293,6 +294,9 @@ function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManag
     }
   ]);
 
+  // Set initial idle frame
+  try { player.play("idle-front"); } catch {}
+
   // Mask overlay (Paper Doll system)
   const maskOverlay = k.add([
     k.sprite("mask-shield"),
@@ -303,6 +307,14 @@ function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManag
     k.z(11),
     "mask-overlay"
   ]);
+
+  // Get direction name from input vector
+  function getDirection(d: { x: number; y: number }): "right" | "front" | "left" | "back" {
+    if (Math.abs(d.x) > Math.abs(d.y)) {
+      return d.x > 0 ? "right" : "left";
+    }
+    return d.y > 0 ? "front" : "back";
+  }
 
   // Movement controls
   player.onUpdate(() => {
@@ -316,18 +328,20 @@ function createPlayer(k: KaboomCtx, x: number, y: number, maskManager: MaskManag
 
     const isMoving = dir.len() > 0.1;
     const newState = isMoving ? "run" : "idle";
+    const newDir = isMoving ? getDirection(dir) : currentDir;
 
     if (isMoving) {
       player.dir = dir.unit();
       player.move(player.dir.scale(player.speed));
     }
 
-    // State transition - switch sprite
-    if (newState !== currentState) {
+    // State or direction changed - update sprite/animation
+    if (newState !== currentState || newDir !== currentDir) {
       currentState = newState;
+      currentDir = newDir;
       try {
         player.use(k.sprite(newState === "run" ? "vu-run" : "vu-idle"));
-        if (newState === "run") player.play("run");
+        player.play(`${newState}-${currentDir}`);
       } catch {}
     }
 
